@@ -1,0 +1,60 @@
+/* ============================================================================
+   EDEN — fallback.css (no-WebGL atmosphere)
+   ----------------------------------------------------------------------------
+   Loaded by js/main.js when WebGL is unavailable (Section 16). Goal: keep the
+   experience gorgeous without particles or a cursor PointLight.
+
+   Strategy:
+     - Drop the texture-blended background layers (they rely on a 3D light to
+       reveal them; without WebGL they just sit there flat).
+     - Replace with a pure-CSS radial-gradient atmosphere that evokes the same
+       soil-at-night void + faint bioluminescent haze.
+     - The grain + vignette + typography stay — those are already CSS-only.
+
+   The GSAP text timeline (Phase 2) still runs, so the visitor still gets the
+   full "In the beginning." → EDEN arc. Only the 3D is absent.
+   ========================================================================== */
+
+/* Hide the texture layers — without a 3D light they read as flat images. */
+#bg-main,
+#bg-atmosphere {
+  background-image: none;
+  mix-blend-mode: normal;
+}
+
+/* Pure-CSS atmosphere: soil-at-night void with a faint warm-green center. */
+#bg-main {
+  /* Deep radial that lifts slightly toward center, like light through leaves. */
+  background:
+    radial-gradient(
+      ellipse 80% 60% at 50% 50%,
+      rgba(38, 58, 44, 0.35) 0%,
+      rgba(20, 33, 24, 0.6) 28%,
+      rgba(6, 10, 8, 1) 75%
+    ),
+    var(--void);
+  opacity: 1;
+}
+
+/* Faint bioluminescent haze via layered, blurred radial gradients.
+   No real particles, but the eye reads scattered light in the dark. */
+#bg-atmosphere {
+  background:
+    radial-gradient(circle at 22% 30%, rgba(74, 158, 122, 0.10) 0%, transparent 12%),
+    radial-gradient(circle at 78% 22%, rgba(196, 148, 58, 0.09) 0%, transparent 10%),
+    radial-gradient(circle at 35% 75%, rgba(74, 158, 122, 0.08) 0%, transparent 14%),
+    radial-gradient(circle at 82% 68%, rgba(196, 148, 58, 0.07) 0%, transparent 11%),
+    radial-gradient(circle at 60% 50%, rgba(74, 158, 122, 0.06) 0%, transparent 16%);
+  opacity: 1;
+  mix-blend-mode: screen;
+}
+
+/* The two canvases have nothing to draw without WebGL — keep them inert. */
+#webgl-canvas,
+#cursor-canvas {
+  display: none;
+}
+
+/* Without the custom-cursor light, restore the system cursor so the visitor
+   isn't stranded with an invisible pointer. */
+html { cursor: auto; }

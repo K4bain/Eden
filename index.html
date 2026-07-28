@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <!--
+    EDEN — a standalone WebGL art piece by Aylux (GitHub: K4bain)
+    Phase 2: GSAP timeline — the full text arc. Shell from Phase 1 stays;
+    three.js particles/cursor arrive in Phase 3.
+    See ./README.md for phase status, and EDEN_FULL_CONTEXT.md for the brief.
+
+    GOTCHA (Section 18 #1): loading-screen CSS is INLINE in <head> to avoid a
+    blank flash before the external stylesheet loads. Do NOT move it to style.css.
+  -->
+
+  <title>EDEN</title>
+  <meta name="description" content="EDEN — an interactive WebGL art piece by Aylux." />
+  <meta name="author" content="Aylux" />
+  <meta name="color-scheme" content="dark" />
+  <meta name="theme-color" content="#060a08" />
+
+  <!-- Mark JS available before paint. CSS gates initial-state hiding on .js
+       so a no-JS visitor still sees the content rather than a blank stage. -->
+  <script>document.documentElement.classList.add('js');</script>
+
+  <!-- Google Fonts: Cormorant Garamond 300 (fragile) + 700 (monumental) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;700&display=swap"
+    rel="stylesheet"
+  />
+
+  <style>
+    /* ── Loading screen (INLINE — GOTCHA #1) ─────────────────────────── */
+    /* A living seed in the dark: a soft orb that breathes, then the word
+       EDEN materializes beneath it as the assets arrive. No progress bar —
+       the breathing IS the progress. */
+    #loading-screen {
+      position: fixed; inset: 0; background: #060a08; z-index: 20;
+      display: flex; flex-direction: column; align-items: center;
+      justify-content: center; gap: 1.8rem;
+      transition: opacity 0.6s ease;     /* Phase 2: GSAP will drive this fade */
+    }
+    #loading-screen.is-leaving { opacity: 0; pointer-events: none; }
+
+    /* The breathing orb. Two stacked radial gradients (core + halo) that
+       scale + brighten on a slow cycle, like a held breath. */
+    .loading-orb {
+      position: relative;
+      width: clamp(60px, 9vw, 96px);
+      height: clamp(60px, 9vw, 96px);
+      animation: orb-breathe 2.6s ease-in-out infinite;
+    }
+    .loading-orb__core,
+    .loading-orb__halo {
+      position: absolute; inset: 0; border-radius: 50%;
+    }
+    .loading-orb__core {
+      background: radial-gradient(circle at 50% 45%,
+        #D4A55A 0%, #8B5E3C 35%, rgba(139,94,60,0) 70%);
+      filter: blur(0.5px);
+    }
+    .loading-orb__halo {
+      background: radial-gradient(circle at 50% 45%,
+        rgba(196,148,58,0.4) 0%, rgba(74,158,122,0.12) 40%, rgba(0,0,0,0) 72%);
+      transform: scale(2.0);
+      filter: blur(8px);
+      animation: orb-halo 2.6s ease-in-out infinite;
+    }
+
+    /* The word materializes as the orb breathes — opacity tracks the breath
+       so it feels born of the light, not typed beneath it. */
+    .loading-word {
+      font-family: 'Cormorant Garamond', serif; font-weight: 300;
+      font-size: clamp(0.7rem, 1.4vw, 0.95rem); color: #D4C9B8;
+      letter-spacing: 0.55em; text-transform: uppercase;
+      margin: 0; line-height: 1; padding-left: 0.55em; /* optical centering */
+      opacity: 0.35;
+      animation: word-breathe 2.6s ease-in-out infinite;
+    }
+
+    @keyframes orb-breathe {
+      0%, 100% { transform: scale(0.82); opacity: 0.55; }
+      50%      { transform: scale(1.0);  opacity: 1.0;  }
+    }
+    @keyframes orb-halo {
+      0%, 100% { opacity: 0.4; transform: scale(1.7); }
+      50%      { opacity: 0.9; transform: scale(2.1); }
+    }
+    @keyframes word-breathe {
+      0%, 100% { opacity: 0.2; letter-spacing: 0.55em; }
+      50%      { opacity: 0.6; letter-spacing: 0.6em; }
+    }
+
+    /* Stop any flash of the wrong background before style.css applies. */
+    html, body { background: #060a08; }
+  </style>
+
+  <!-- Splitting.js CSS (char/word split styling) — loaded before style.css -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/splitting@1.0.6/dist/splitting.css" />
+
+  <link rel="stylesheet" href="./style.css" />
+</head>
+<body>
+  <!--
+    LAYER STACK (Section 12). z-index architecture lives in style.css.
+    CRITICAL (GOTCHA #5): html and body carry NO transform / filter /
+    will-change / clip-path — those create stacking contexts and break
+    z-index. Keep them clean forever.
+  -->
+
+  <!-- -1 · WebGL scene (arrives in Phase 3). pointer-events: none always. -->
+  <canvas id="webgl-canvas"></canvas>
+
+  <!-- 0 · Custom cursor light, drawn in 2D (Phase 3). pointer-events: none. -->
+  <canvas id="cursor-canvas"></canvas>
+
+  <!-- 1 · Background painting surface -->
+  <div id="bg-main" aria-hidden="true"></div>
+
+  <!-- 2 · Secondary atmosphere layer -->
+  <div id="bg-atmosphere" aria-hidden="true"></div>
+
+  <!-- 3 · Vignette (pure CSS radial gradient — no image) -->
+  <div id="vignette" aria-hidden="true"></div>
+
+  <!-- 4 · Film grain overlay (procedural SVG tile in Phase 1) -->
+  <div id="grain" aria-hidden="true"></div>
+
+  <!-- 10 · The only content the visitor ever sees -->
+  <main id="eden-content">
+    <p class="eden-opening">In the beginning.</p>
+    <h1 class="eden-name">EDEN</h1>
+    <p class="eden-secondary">Saper vedere.</p>
+  </main>
+
+  <!-- 11 · Scroll hint — appears at RESOLUTION (Section 13, +3.5s) -->
+  <div id="scroll-hint" aria-hidden="true"></div>
+
+  <!-- 20 · Loading screen — a breathing seed (fades out via js/main.js) -->
+  <div id="loading-screen" aria-hidden="true">
+    <div class="loading-orb">
+      <div class="loading-orb__halo"></div>
+      <div class="loading-orb__core"></div>
+    </div>
+    <p class="loading-word">EDEN</p>
+  </div>
+
+  <!--
+    Phase 2/3 script chain.
+    - Classic (global) CDNs first: GSAP, ScrollTrigger, Splitting.
+    - Phase 2 Eden files as classic scripts: loader.js, timeline.js.
+    - Phase 3 Three.js + main.js as ES modules (importmap maps "three").
+    NOTE: ES modules require http:// — open via `npx serve eden` or VS Code
+    Live Server, NOT the file:// desktop shortcut.
+  -->
+  <script defer src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/ScrollTrigger.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/splitting@1.0.6/dist/splitting.min.js"></script>
+  <script defer src="./js/eden/loader.js"></script>
+  <script defer src="./js/eden/timeline.js"></script>
+
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.158.0/build/three.module.js",
+      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.158.0/examples/jsm/"
+    }
+  }
+  </script>
+  <script type="module" src="./js/main.js"></script>
+</body>
+</html>
