@@ -104,18 +104,9 @@ export function createParticles(opts = {}) {
   const PULL_STRENGTH = 0.0008;
 
   // Scroll depth: 0 at top, 1 at bottom. Drives particle expansion.
-  // With ScrollSmoother, use its progress instead of native scroll.
+  // With ScrollSmoother active, native scroll events don't fire (transforms).
+  // We poll ScrollSmoother.progress in the update loop instead.
   let scrollDepth = 0;
-  const onScroll = () => {
-    // Prefer ScrollSmoother progress if available (smoother is active).
-    if (window._edenSmoother) {
-      scrollDepth = window._edenSmoother.progress;
-    } else {
-      const max = document.documentElement.scrollHeight - window.innerHeight;
-      scrollDepth = max > 0 ? window.scrollY / max : 0;
-    }
-  };
-  window.addEventListener('scroll', onScroll, { passive: true });
 
   // Cheap turbulence — 3 sine waves instead of 6 noise3D evaluations.
   // Visually similar to curl noise but ~10x cheaper per particle.
@@ -134,6 +125,14 @@ export function createParticles(opts = {}) {
   const update = (time /*s*/, cursorWorld) => {
     age += 1 / 60;                      // approximate; fine for fades
     const pos = geometry.attributes.position.array;
+
+    // Poll scroll depth every frame — works with both native scroll and ScrollSmoother.
+    if (window._edenSmoother) {
+      scrollDepth = window._edenSmoother.progress;
+    } else {
+      const max = document.documentElement.scrollHeight - window.innerHeight;
+      scrollDepth = max > 0 ? window.scrollY / max : 0;
+    }
 
     // Fade-in over 1.5s (fast reveal of the field).
     const fadeIn = Math.min(age / 1.5, 1);
