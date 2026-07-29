@@ -242,7 +242,7 @@ const loadTexturesAsync = () => {
     new Promise((resolve) => {
       loader.load(url, resolve, undefined, () => resolve(null));
     });
-  return Promise.all([load('./assets/textures/bg-main.png')]).then((r) => {
+  return Promise.all([load('./assets/textures/bg-main.jpg')]).then((r) => {
     const bgMain = r[0];
     if (bgMain) bgMain.colorSpace = THREE.SRGBColorSpace;
     return { bgMain, grain: null };

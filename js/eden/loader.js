@@ -53,8 +53,8 @@
     return Promise.all([
       fontsReady().then(() => { loaded.n++; tick(); }),
       preloadCssImages(
-        ['./assets/textures/bg-main.png',
-         './assets/textures/bg-atmosphere.png']
+        ['./assets/textures/bg-main.jpg',
+         './assets/textures/bg-atmosphere.jpg']
       ).then(() => { loaded.n++; tick(); }),
       minDelay(1000).then(() => { loaded.n++; tick(); })
     ]).then(() => {

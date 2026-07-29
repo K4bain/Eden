@@ -98,7 +98,7 @@ html { cursor: none; }
 /* z:1 — main painting surface. multiply pulls the void into the texture so the
    dark stays dominant; the cursor's PointLight will reveal it in Phase 3. */
 #bg-main {
-  background-image: url('./assets/textures/bg-main.png');
+  background-image: url('./assets/textures/bg-main.jpg');
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
@@ -110,7 +110,7 @@ html { cursor: none; }
 /* z:2 — secondary atmosphere. screen lays the faint bioluminescent haze over
    the multiplied base. Low opacity — it is atmosphere, not subject. */
 #bg-atmosphere {
-  background-image: url('./assets/textures/bg-atmosphere.png');
+  background-image: url('./assets/textures/bg-atmosphere.jpg');
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
