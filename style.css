@@ -82,8 +82,8 @@ html { cursor: none; }
 /* ── 3. Layer stack (z-index, Section 12) ────────────────────────────────── */
 #webgl-canvas    { z-index: -1; }   /* paper-cut relief + particles (transparent) */
 #cursor-canvas   { z-index:  0; }   /* custom cursor light */
-#bg-main         { z-index:  1; }
-#bg-atmosphere   { z-index:  2; }
+#bg-main         { z-index:  1; display: none; }   /* handled by Three.js */
+#bg-atmosphere   { z-index:  2; display: none; }   /* handled by Three.js */
 #vignette        { z-index:  3; }
 #grain           { z-index:  4; }
 #eden-content    { z-index: 10; }

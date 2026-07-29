@@ -3,51 +3,39 @@
    ----------------------------------------------------------------------------
    Recreates the Unicorn Studio "noisemask_hero_remix" effect natively in
    Three.js: a white/cream3D paper-cut relief with flowers and birds,
-   revealed/concealed by a flowing noise mask.
+   continuously revealed/concealed by a flowing noise mask.
 
-   The effect:
-   - White textured background plane
-   - Relief image (flowers/birds) with displacement for depth
-   - Noise-based alpha mask that flows across the surface
-   - Soft directional lighting for shadow depth
-   - Animated reveal on load, subtle breathing thereafter
+   The noise mask is ALWAYS active — it flows across the surface creating
+   organic shapes that reveal/hide the relief. Not a one-time reveal.
 
    ========================================================================== */
 
 import * as THREE from 'three';
 
-// ── Simplex noise GLSL (for the reveal mask) ────────────────────────────────
-// Optimized 2D/3D simplex noise in GLSL — runs on GPU, zero JS overhead.
+// ── Simplex noise GLSL ──────────────────────────────────────────────────────
 const NOISE_GLSL = /* glsl */ `
-  // Simplex 3D noise — Stefan Gustavson / Ian McEwan
   vec4 permute(vec4 x) { return mod(((x * 34.0) + 1.0) * x, 289.0); }
   vec4 taylorInvSqrt(vec4 r) { return 1.79284291400159 - 0.85373472095314 * r; }
 
   float snoise(vec3 v) {
     const vec2 C = vec2(1.0 / 6.0, 1.0 / 3.0);
     const vec4 D = vec4(0.0, 0.5, 1.0, 2.0);
-
     vec3 i = floor(v + dot(v, C.yyy));
     vec3 x0 = v - i + dot(i, C.xxx);
-
     vec3 g = step(x0.yzx, x0.xyz);
     vec3 l = 1.0 - g;
     vec3 i1 = min(g.xyz, l.zxy);
     vec3 i2 = max(g.xyz, l.zxy);
-
     vec3 x1 = x0 - i1 + C.xxx;
     vec3 x2 = x0 - i2 + C.yyy;
     vec3 x3 = x0 - D.yyy;
-
     i = mod(i, 289.0);
     vec4 p = permute(permute(permute(
       i.z + vec4(0.0, i1.z, i2.z, 1.0))
       + i.y + vec4(0.0, i1.y, i2.y, 1.0))
       + i.x + vec4(0.0, i1.x, i2.x, 1.0));
-
     float n_ = 1.0 / 7.0;
     vec3 ns = n_ * D.wyz - D.xzx;
-
     vec4 j = p - 49.0 * floor(p * ns.z * ns.z);
     vec4 x_ = floor(j * ns.z);
     vec4 y_ = floor(j - 7.0 * x_);
@@ -72,12 +60,11 @@ const NOISE_GLSL = /* glsl */ `
     return 42.0 * dot(m * m, vec4(dot(p0,x0), dot(p1,x1), dot(p2,x2), dot(p3,x3)));
   }
 
-  // Fractal Brownian Motion — 3 octaves for organic flowing mask.
   float fbm(vec3 p) {
     float f = 0.0;
     float a = 0.5;
     vec3 shift = vec3(100.0);
-    for (int i = 0; i < 3; i++) {
+    for (int i = 0; i < 4; i++) {
       f += a * snoise(p);
       p = p * 2.0 + shift;
       a *= 0.5;
@@ -86,83 +73,74 @@ const NOISE_GLSL = /* glsl */ `
   }
 `;
 
-// ── Paper-cut relief material ────────────────────────────────────────────────
-// The relief image is mapped onto a plane. A noise mask controls alpha,
-// creating the organic reveal/conceal effect. Displacement adds depth.
-const PAPER_CUT_VERTEX = /* glsl */ `
+// ── Relief material ─────────────────────────────────────────────────────────
+// The relief image with a flowing noise mask that's always active.
+// Two noise layers at different speeds create organic flowing shapes.
+const RELIEF_VERT = /* glsl */ `
   varying vec2 vUv;
   varying vec3 vNormal;
-  varying vec3 vPosition;
+  varying vec3 vViewPos;
 
   void main() {
     vUv = uv;
     vNormal = normalize(normalMatrix * normal);
-    vPosition = (modelViewMatrix * vec4(position, 1.0)).xyz;
+    vViewPos = (modelViewMatrix * vec4(position, 1.0)).xyz;
     gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
   }
 `;
 
-const PAPER_CUT_FRAGMENT = /* glsl */ `
+const RELIEF_FRAG = /* glsl */ `
   uniform sampler2D uReliefMap;
-  uniform sampler2D uNoiseMap;
   uniform float uTime;
-  uniform float uRevealProgress;    // 0 = hidden, 1 = fully revealed
+  uniform float uReveal;             // 0..1 overall visibility amount
   uniform float uNoiseScale;
-  uniform float uNoiseSpeed;
-  uniform vec3 uLightDir;           // normalized light direction
-  uniform vec3 uBaseColor;          // white/cream base
-  uniform float uDisplacementStrength;
+  uniform vec3 uLightDir;
 
   varying vec2 vUv;
   varying vec3 vNormal;
-  varying vec3 vPosition;
+  varying vec3 vViewPos;
 
   ${NOISE_GLSL}
 
   void main() {
-    // Sample the relief texture (white paper-cut flowers/birds).
     vec4 relief = texture2D(uReliefMap, vUv);
 
-    // Generate noise mask — organic flowing shape.
-    vec3 noisePos = vec3(vUv * uNoiseScale, uTime * uNoiseSpeed);
-    float noise = fbm(noisePos);
+    // Two-layer noise mask — different scales and speeds for organic flow.
+    vec3 np1 = vec3(vUv * uNoiseScale, uTime * 0.03);
+    vec3 np2 = vec3(vUv * uNoiseScale * 0.7 + 3.14, uTime * 0.02 + 50.0);
+    float n1 = fbm(np1);
+    float n2 = fbm(np2);
+    float noise = n1 * 0.6 + n2 * 0.4;
 
-    // Remap noise from [-1,1] to [0,1] for alpha mask.
+    // Remap to 0..1
     float mask = noise * 0.5 + 0.5;
 
-    // Reveal progress controls the threshold.
-    // As uRevealProgress goes 0→1, more of the relief is revealed.
-    float threshold = mix(1.2, -0.2, uRevealProgress);
-    float alpha = smoothstep(threshold - 0.15, threshold + 0.15, mask);
+    // uReveal controls how much is visible (threshold).
+    // Low reveal = only peaks visible. High reveal = most visible.
+    float threshold = mix(0.7, 0.15, uReveal);
+    float edge = 0.12;
+    float alpha = smoothstep(threshold - edge, threshold + edge, mask);
 
-    // Soft edge — feather the mask for organic feel.
-    alpha = pow(alpha, 0.8);
+    // Soft feather
+    alpha = pow(alpha, 0.7);
 
-    // Lighting — directional light creates shadows on the relief.
+    // Directional lighting for depth on the relief.
     float NdotL = max(dot(vNormal, uLightDir), 0.0);
-    float ambient = 0.6;
-    float diffuse = NdotL * 0.4;
+    float lighting = 0.65 + NdotL * 0.35;
 
-    // Rim light — subtle edge highlight for depth.
-    vec3 viewDir = normalize(-vPosition);
-    float rim = pow(1.0 - max(dot(vNormal, viewDir), 0.0), 3.0) * 0.15;
+    // Subtle rim for 3D feel.
+    vec3 viewDir = normalize(-vViewPos);
+    float rim = pow(1.0 - max(dot(vNormal, viewDir), 0.0), 3.0) * 0.1;
+    lighting += rim;
 
-    // Combine lighting.
-    float lighting = ambient + diffuse + rim;
-
-    // Final color — white/cream with relief texture modulated by lighting.
-    vec3 color = uBaseColor * relief.rgb * lighting;
-
-    // Subtle warm tint in shadows.
-    color += vec3(0.02, 0.015, 0.01) * (1.0 - NdotL) * relief.rgb;
+    vec3 color = relief.rgb * lighting;
 
     gl_FragColor = vec4(color, alpha * relief.a);
   }
 `;
 
-// ── Background plane material (textured white surface) ──────────────────────
-// The white/cream background behind the relief — like textured paper.
-const BG_VERTEX = /* glsl */ `
+// ── Background — textured paper surface ─────────────────────────────────────
+const BG_VERT = /* glsl */ `
   varying vec2 vUv;
   void main() {
     vUv = uv;
@@ -170,49 +148,35 @@ const BG_VERTEX = /* glsl */ `
   }
 `;
 
-const BG_FRAGMENT = /* glsl */ `
+const BG_FRAG = /* glsl */ `
   uniform float uTime;
   varying vec2 vUv;
 
   ${NOISE_GLSL}
 
   void main() {
-    // Subtle paper texture via noise.
-    vec3 noisePos = vec3(vUv * 8.0, uTime * 0.02);
-    float grain = fbm(noisePos) * 0.03;
+    vec3 np = vec3(vUv * 6.0, uTime * 0.015);
+    float grain = fbm(np) * 0.025;
+    vec3 color = vec3(0.94, 0.92, 0.89) + grain;
 
-    // Base cream color with subtle variation.
-    vec3 color = vec3(0.95, 0.93, 0.90) + grain;
-
-    // Very subtle vignette — darker at edges.
-    float vignette = 1.0 - length(vUv - 0.5) * 0.3;
-    color *= vignette;
+    // Soft vignette.
+    float vig = 1.0 - length(vUv - 0.5) * 0.25;
+    color *= vig;
 
     gl_FragColor = vec4(color, 1.0);
   }
 `;
 
-/**
- * Creates the paper-cut3D relief scene.
- * @param {object} opts
- * @param {THREE.Texture} opts.reliefTexture — the white paper-cut image
- * @param {boolean} opts.isMobile — mobile performance mode
- * @returns {object} { group, update(time), reveal(duration), resize() }
- */
 export function createPaperCut(opts = {}) {
   const { reliefTexture, isMobile = false } = opts;
-
   const group = new THREE.Group();
 
-  // ── Background plane ──────────────────────────────────────────────────────
-  // Large white/cream textured surface behind the relief.
-  const bgGeo = new THREE.PlaneGeometry(16, 10, 1, 1);
+  // ── Background plane ────────────────────────────────────────────────────
+  const bgGeo = new THREE.PlaneGeometry(16, 10);
   const bgMat = new THREE.ShaderMaterial({
-    vertexShader: BG_VERTEX,
-    fragmentShader: BG_FRAGMENT,
-    uniforms: {
-      uTime: { value: 0 },
-    },
+    vertexShader: BG_VERT,
+    fragmentShader: BG_FRAG,
+    uniforms: { uTime: { value: 0 } },
     transparent: false,
     depthWrite: true,
   });
@@ -220,144 +184,106 @@ export function createPaperCut(opts = {}) {
   bgMesh.position.z = -1;
   group.add(bgMesh);
 
-  // ── Relief plane ──────────────────────────────────────────────────────────
-  // The paper-cut image with noise-masked reveal.
-  const reliefGeo = new THREE.PlaneGeometry(14, 8, isMobile ? 64 : 128, isMobile ? 64 : 128);
+  // ── Relief plane ────────────────────────────────────────────────────────
+  const reliefGeo = new THREE.PlaneGeometry(14, 8);
   const reliefMat = new THREE.ShaderMaterial({
-    vertexShader: PAPER_CUT_VERTEX,
-    fragmentShader: PAPER_CUT_FRAGMENT,
+    vertexShader: RELIEF_VERT,
+    fragmentShader: RELIEF_FRAG,
     uniforms: {
       uReliefMap: { value: reliefTexture },
-      uNoiseMap: { value: null },
       uTime: { value: 0 },
-      uRevealProgress: { value: 0 },
-      uNoiseScale: { value: isMobile ? 2.0 : 2.5 },
-      uNoiseSpeed: { value: 0.04 },
-      uLightDir: { value: new THREE.Vector3(0.5, 0.8, 1.0).normalize() },
-      uBaseColor: { value: new THREE.Color(0.95, 0.93, 0.90) },
-      uDisplacementStrength: { value: 0.02 },
+      uReveal: { value: 0.6 },         // start partially visible
+      uNoiseScale: { value: isMobile ? 1.8 : 2.2 },
+      uLightDir: { value: new THREE.Vector3(0.4, 0.7, 1.0).normalize() },
     },
     transparent: true,
-    depthWrite: true,
+    depthWrite: false,
     side: THREE.DoubleSide,
   });
   const reliefMesh = new THREE.Mesh(reliefGeo, reliefMat);
-  reliefMesh.position.z = 0;
   group.add(reliefMesh);
 
-  // ── Floating particles (paper confetti) ───────────────────────────────────
-  // Tiny white fragments that drift during the reveal — like paper scraps.
-  const particleCount = isMobile ? 80 : 200;
+  // ── Floating particles ──────────────────────────────────────────────────
+  const pCount = isMobile ? 60 : 150;
   const pGeo = new THREE.BufferGeometry();
-  const pPositions = new Float32Array(particleCount * 3);
-  const pSizes = new Float32Array(particleCount);
-  const pPhases = new Float32Array(particleCount);
-
-  for (let i = 0; i < particleCount; i++) {
-    pPositions[i * 3] = (Math.random() - 0.5) * 14;
-    pPositions[i * 3 + 1] = (Math.random() - 0.5) * 8;
-    pPositions[i * 3 + 2] = Math.random() * 2 - 0.5;
-    pSizes[i] = Math.random() * 0.02 + 0.005;
+  const pPos = new Float32Array(pCount * 3);
+  const pPhases = new Float32Array(pCount);
+  for (let i = 0; i < pCount; i++) {
+    pPos[i * 3]     = (Math.random() - 0.5) * 14;
+    pPos[i * 3 + 1] = (Math.random() - 0.5) * 8;
+    pPos[i * 3 + 2] = Math.random() * 2 - 0.5;
     pPhases[i] = Math.random() * Math.PI * 2;
   }
-
-  pGeo.setAttribute('position', new THREE.BufferAttribute(pPositions, 3));
-  pGeo.setAttribute('size', new THREE.BufferAttribute(pSizes, 1));
+  pGeo.setAttribute('position', new THREE.BufferAttribute(pPos, 3));
 
   const pMat = new THREE.PointsMaterial({
-    size: 0.015,
+    size: 0.012,
     sizeAttenuation: true,
-    color: 0xe8e0d4,
+    color: 0xd0c8b8,
     transparent: true,
-    opacity: 0,
+    opacity: 0.25,
     depthWrite: false,
-    blending: THREE.NormalBlending,
-    map: makeSoftDot(),
+    map: makeDot(),
   });
-
   const particles = new THREE.Points(pGeo, pMat);
   group.add(particles);
 
-  // ── Animation state ───────────────────────────────────────────────────────
-  let revealProgress = 0;
-  let revealTarget = 0;
-  let revealStartTime = 0;
-  let revealDuration = 2000;
-  let isRevealing = false;
+  // ── State ───────────────────────────────────────────────────────────────
+  let currentReveal = 0.6;
+  let targetReveal = 0.6;
 
-  // ── Public API ────────────────────────────────────────────────────────────
   const update = (time) => {
     bgMat.uniforms.uTime.value = time;
     reliefMat.uniforms.uTime.value = time;
-    reliefMat.uniforms.uRevealProgress.value = revealProgress;
 
-    // Animate reveal.
-    if (isRevealing) {
-      const elapsed = performance.now() - revealStartTime;
-      const t = Math.min(elapsed / revealDuration, 1);
-      // Ease out cubic — fast start, gentle finish.
-      revealProgress = 1 - Math.pow(1 - t, 3);
-      if (t >= 1) {
-        isRevealing = false;
-        revealProgress = 1;
-      }
-    }
+    // Smoothly lerp reveal toward target.
+    currentReveal += (targetReveal - currentReveal) * 0.02;
+    reliefMat.uniforms.uReveal.value = currentReveal;
 
-    // Subtle floating particles.
-    const pPos = pGeo.attributes.position.array;
-    for (let i = 0; i < particleCount; i++) {
+    // Drift particles.
+    const arr = pGeo.attributes.position.array;
+    for (let i = 0; i < pCount; i++) {
       const i3 = i * 3;
-      pPos[i3 + 1] += Math.sin(time * 0.3 + pPhases[i]) * 0.0003;
-      pPos[i3] += Math.cos(time * 0.2 + pPhases[i] * 0.7) * 0.0002;
+      arr[i3 + 1] += Math.sin(time * 0.25 + pPhases[i]) * 0.0002;
+      arr[i3]     += Math.cos(time * 0.18 + pPhases[i] * 0.7) * 0.00015;
     }
     pGeo.attributes.position.needsUpdate = true;
 
-    // Particle opacity follows reveal.
-    pMat.opacity = revealProgress * 0.3;
-
-    // Subtle breathing of the relief.
-    const breathe = Math.sin(time * 0.4) * 0.003;
-    reliefMesh.scale.set(1 + breathe, 1 + breathe, 1);
+    // Subtle breathing.
+    const b = Math.sin(time * 0.35) * 0.002;
+    reliefMesh.scale.set(1 + b, 1 + b, 1);
   };
 
-  const reveal = (duration = 2000) => {
-    revealStartTime = performance.now();
-    revealDuration = duration;
-    isRevealing = true;
-    revealProgress = 0;
-    pMat.opacity = 0;
+  // Called at revelation — temporarily opens the mask more, then settles.
+  const reveal = (duration = 2500) => {
+    targetReveal = 1.0;
+    setTimeout(() => { targetReveal = 0.75; }, duration);
   };
 
   const resize = (w, h) => {
     const aspect = w / h;
-    const baseAspect = 16 / 9;
-    let scale;
-    if (aspect > baseAspect) {
-      scale = aspect / baseAspect;
-    } else {
-      scale = 1;
-    }
-    bgMesh.scale.set(scale, scale, 1);
-    reliefMesh.scale.set(scale, scale, 1);
+    const base = 16 / 9;
+    const s = aspect > base ? aspect / base : 1;
+    bgMesh.scale.set(s, s, 1);
+    reliefMesh.scale.set(s, s, 1);
   };
 
   return { group, update, reveal, resize };
 }
 
-// ── Soft dot texture for particles ──────────────────────────────────────────
-let _dotTex = null;
-function makeSoftDot() {
-  if (_dotTex) return _dotTex;
+let _dot = null;
+function makeDot() {
+  if (_dot) return _dot;
   const s = 64;
   const c = document.createElement('canvas');
   c.width = c.height = s;
   const ctx = c.getContext('2d');
-  const g = ctx.createRadialGradient(s / 2, s / 2, 0, s / 2, s / 2, s / 2);
+  const g = ctx.createRadialGradient(s/2, s/2, 0, s/2, s/2, s/2);
   g.addColorStop(0, 'rgba(255,255,255,1)');
-  g.addColorStop(0.4, 'rgba(255,255,255,0.6)');
+  g.addColorStop(0.4, 'rgba(255,255,255,0.5)');
   g.addColorStop(1, 'rgba(255,255,255,0)');
   ctx.fillStyle = g;
   ctx.fillRect(0, 0, s, s);
-  _dotTex = new THREE.CanvasTexture(c);
-  return _dotTex;
+  _dot = new THREE.CanvasTexture(c);
+  return _dot;
 }
