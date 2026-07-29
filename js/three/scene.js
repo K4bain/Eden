@@ -19,9 +19,7 @@
 import * as THREE from 'three';
 import { createParticles } from './particles.js';
 import { createLights } from './lights.js';
-import { createBackground } from './background.js';
 import { createCursor } from '../eden/cursor.js';
-import { createPostProcessing } from './postprocessing.js';
 
 export function initScene() {
   const EDEN = window.EDEN = window.EDEN || {};
@@ -51,6 +49,7 @@ export function initScene() {
   });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
   renderer.setSize(window.innerWidth, window.innerHeight);
+  renderer.setClearColor(0x000000, 0);  // transparent — Unicorn bg shows through
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   renderer.toneMappingExposure = 1.3;
 
@@ -60,9 +59,9 @@ export function initScene() {
   );
   camera.position.z = 5;
 
-  // ── Scene + fog (depth, "edges dissolve" feel — Phase 4 sfumato shader) ───
+  // ── Scene (no fog — would darken the Unicorn background) ──────────────────
   const scene = new THREE.Scene();
-  scene.fog = new THREE.FogExp2(0x030303, 0.02);
+  scene.background = null;
 
   // ── Lights ────────────────────────────────────────────────────────────────
   const lights = createLights();
@@ -70,19 +69,12 @@ export function initScene() {
   scene.add(lights.pointLight);
 
   // ── Particles ─────────────────────────────────────────────────────────────
-  // Perf: desktop count lowered 1400 → 800. The field still reads as full at
-  // this density, and it cuts the per-frame CPU loop + buffer upload by ~43%.
   const particles = createParticles({ count: isMobile ? 250 : 1200, isMobile });
   scene.add(particles.points);
 
-  // ── Background (painted surface) ─────────────────────────────────────────
-  const bg = createBackground({ bgMain: null, grain: null });
-  scene.add(bg.mesh);
-  loadTexturesAsync().then((tex) => {
-    if (tex.bgMain) bg.material.map = tex.bgMain;
-    if (tex.grain)  bg.material.normalMap = tex.grain;
-    bg.material.needsUpdate = true;
-  });
+  // ── Background ──────────────────────────────────────────────────────────
+  // Unicorn Studio provides the animated background via its own canvas.
+  // No bg-main plane needed.
 
   // ── Cursor light (skipped on touch) ──────────────────────────────────────
   const cursorCanvas = document.getElementById('cursor-canvas');
@@ -91,17 +83,6 @@ export function initScene() {
     cursor = createCursor({ canvas: cursorCanvas, pointLight: lights.pointLight, camera });
     cursor.attach();
   }
-
-  // ── Post-processing (Phase 4 — lazy-loaded) ──────────────────────────────
-  let postfx = null;
-  createPostProcessing(renderer, scene, camera).then((pp) => {
-    postfx = pp;
-    EDEN._postfx = pp;
-    // Hide CSS grain + vignette — the GPU shader handles both now.
-    document.body.classList.add('gpu-postfx');
-  }).catch(() => {
-    // Fallback: CSS .chromatic-active class handles the spike (Phase 2 style).
-  });
 
   // ── Event wiring (timeline → scene) ──────────────────────────────────────
   // Exploration begins → cursor light rises 0 → 3.0 over 1.5s (§13).
@@ -121,14 +102,9 @@ export function initScene() {
     }
   });
 
-  // Revelation → particle surge + background bloom + Phase 4 effects (§13).
+  // Revelation → particle surge (§13).
   window.addEventListener('eden:revelation', () => {
     particles.surge();
-    bg.bloom(0.85);
-    if (postfx) {
-      postfx.spike(300);
-      postfx.bloomSpike(800);
-    }
 
     // GSAP: cursor light living pulse — breathes like a flame after reveal.
     // Starts after the initial ramp completes (~1.5s), subtle ±0.4 oscillation.
@@ -199,21 +175,14 @@ export function initScene() {
     particles.points.rotation.y = Math.sin(t * 0.05) * 0.02;
     particles.points.rotation.x = Math.cos(t * 0.03) * 0.01;
     // Update post-processing grain time.
-    postfx?.update(t);
-    // Background ambient breathing.
-    bg.update(t);
-    // Use composer when available, direct render otherwise.
-    if (postfx) {
-      postfx.composer.render();
-    } else {
-      renderer.render(scene, camera);
-    }
+    // Direct render — transparent canvas, Unicorn bg shows through.
+    renderer.render(scene, camera);
     requestAnimationFrame(loop);
   };
   loop();
 
-  // Expose for debug / Phase 4 wiring.
-  EDEN._scene = { renderer, scene, camera, particles, background: bg, lights };
+  // Expose for debug.
+  EDEN._scene = { renderer, scene, camera, particles, lights };
 }
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
@@ -234,17 +203,3 @@ function animateLightIntensity(from, to, duration) {
   };
   step();
 }
-
-// Load the procedural textures as THREE textures (Phase 1 assets).
-const loadTexturesAsync = () => {
-  const loader = new THREE.TextureLoader();
-  const load = (url) =>
-    new Promise((resolve) => {
-      loader.load(url, resolve, undefined, () => resolve(null));
-    });
-  return Promise.all([load('./assets/textures/bg-main.jpg')]).then((r) => {
-    const bgMain = r[0];
-    if (bgMain) bgMain.colorSpace = THREE.SRGBColorSpace;
-    return { bgMain, grain: null };
-  });
-};

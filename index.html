@@ -110,7 +110,13 @@
     z-index. Keep them clean forever.
   -->
 
-  <!-- -1 · WebGL scene (arrives in Phase 3). pointer-events: none always. -->
+  <!-- -2 · Unicorn Studio WebGL background -->
+  <div id="unicorn-bg"
+       data-us-project="myGHsPaEOlVKoQK5DWC4"
+       style="position:fixed; inset:0; width:100%; height:100%; z-index:-2; pointer-events:none;">
+  </div>
+
+  <!-- -1 · WebGL scene (transparent canvas — particles over Unicorn) -->
   <canvas id="webgl-canvas"></canvas>
 
   <!-- 0 · Custom cursor light, drawn in 2D (Phase 3). pointer-events: none. -->
@@ -209,5 +215,7 @@
   }
   </script>
   <script type="module" src="./js/main.js"></script>
+  <script src="https://cdn.jsdelivr.net/gh/hiunicornstudio/unicornstudio.js@v2.2.8/dist/unicornStudio.umd.js"></script>
+  <script>if(window.UnicornStudio)UnicornStudio.init();</script>
 </body>
 </html>
