@@ -1,84 +1,64 @@
 /* ============================================================================
    EDEN — perf-probe.js  (DEV ONLY — do not ship)
    ----------------------------------------------------------------------------
-   Measures real frame times on the running page and writes results to a
-   visible DOM overlay (#eden-perf) so they can be read via the browser
-   automation snapshot (the IAB blocks evaluate(), so we need a DOM readout).
-   Auto-removes itself after one measurement.
+   Writes live scene stats + frame timing to a #eden-perf overlay so they can
+   be read via browser automation snapshot (IAB blocks evaluate()). Polls on
+   a 250ms interval (not rAF) so it can't be starved by the render loop.
    ========================================================================== */
 (() => {
   'use strict';
-  const isDev = location.hostname === 'localhost' ||
-                location.hostname === '127.0.0.1';
-  if (!isDev) return;
+  if (location.hostname !== 'localhost' && location.hostname !== '127.0.0.1') return;
 
-  // Wait for the scene to boot.
-  const tryStart = () => {
-    if (!(window.EDEN && window.EDEN._scene)) {
-      return setTimeout(tryStart, 200);
-    }
-    setTimeout(measure, 1500); // let it settle
-  };
+  const overlay = document.createElement('div');
+  overlay.id = 'eden-perf';
+  overlay.style.cssText =
+    'position:fixed;top:8px;left:8px;z-index:9999;background:rgba(0,0,0,0.85);' +
+    'color:#0f0;font:11px/1.4 monospace;padding:8px 10px;border-radius:4px;' +
+    'pointer-events:none;white-space:pre;max-width:380px;';
+  overlay.textContent = 'probe: waiting for scene…';
+  document.body.appendChild(overlay);
 
-  const measure = () => {
-    const frames = [];
-    let last = performance.now();
-    let count = 0;
-    const SAMPLES = 90;
+  // Frame-time sampler: track rAF dt over a rolling window.
+  let last = performance.now();
+  let acc = 0, n = 0, mx = 0;
+  function frame() {
+    const now = performance.now();
+    const dt = now - last;
+    last = now;
+    if (dt < 500) { acc += dt; n++; if (dt > mx) mx = dt; } // skip tab-hidden gaps
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
 
-    const overlay = document.createElement('div');
-    overlay.id = 'eden-perf';
-    overlay.style.cssText =
-      'position:fixed;top:8px;left:8px;z-index:9999;background:rgba(0,0,0,0.85);' +
-      'color:#0f0;font:11px/1.4 monospace;padding:8px 10px;border-radius:4px;' +
-      'pointer-events:none;white-space:pre;max-width:360px;';
-    overlay.textContent = 'measuring…';
-    document.body.appendChild(overlay);
+  const fmt = (v, d = 2) => Math.round(v * 10 ** d) / 10 ** d;
 
-    const tick = () => {
-      const now = performance.now();
-      const dt = now - last;
-      last = now;
-      if (count > 3) frames.push(dt);   // skip warmup
-      count++;
-      if (count < SAMPLES) return requestAnimationFrame(tick);
+  setInterval(() => {
+    const s = window.EDEN?._scene;
+    const pc = window.EDEN?._paperCut;
+    if (!s) { overlay.textContent = 'probe: waiting for scene…'; return; }
 
-      frames.sort((a, b) => a - b);
-      const avg = frames.reduce((s, v) => s + v, 0) / frames.length;
-      const median = frames[Math.floor(frames.length / 2)];
-      const p95 = frames[Math.floor(frames.length * 0.95)];
-      const max = frames[frames.length - 1];
+    // Reset the rolling window each read so each snapshot is ~recent.
+    const avgFrame = n > 0 ? acc / n : 0;
+    const fps = avgFrame > 0 ? 1000 / avgFrame : 0;
 
-      const s = window.EDEN?._scene;
-      const pc = window.EDEN?._paperCut;
-      const reliefMesh = pc?.group?.children?.find(c => c.geometry && c.geometry.attributes.position);
-      const out = {
-        avgFrame_ms: Math.round(avg * 100) / 100,
-        medianFrame_ms: Math.round(median * 100) / 100,
-        p95Frame_ms: Math.round(p95 * 100) / 100,
-        maxFrame_ms: Math.round(max * 100) / 100,
-        avgFPS: Math.round(1000 / avg),
-        pixelRatio: s?.renderer?.getPixelRatio?.() ?? null,
-        particleCount: s?.particles?.points?.geometry?.attributes?.position?.count ?? null,
-        reliefVerts: reliefMesh?.geometry?.attributes?.position?.count ?? null,
-        reliefSegments:
-          reliefMesh?.geometry?.attributes?.position?.count
-            ? Math.round(reliefMesh.geometry.attributes.position.count / 6) + 'x' +
-              Math.round(reliefMesh.geometry.attributes.position.count / 6)
-            : null,
-        drawCalls: s?.renderer?.info?.render?.calls ?? null,
-        triangles: s?.renderer?.info?.render?.triangles ?? null,
-        viewport: window.innerWidth + 'x' + window.innerHeight,
-        dpr: window.devicePixelRatio,
-        hasPostfx: !!window.EDEN?._postfx,
-        smootherActive: !!window._edenSmoother,
-      };
-      overlay.textContent = JSON.stringify(out, null, 1)
-        .replace(/[{}"]/g, '').replace(/,\n/g, '\n').replace(/^\n/, '');
-      window.__EDEN_PERF__ = out;
-    };
-    requestAnimationFrame(tick);
-  };
+    // Reset window after read for the next interval.
+    const outAvg = avgFrame, outMax = mx, outN = n;
+    acc = 0; n = 0; mx = 0;
 
-  tryStart();
+    const ri = s.renderer?.info?.render;
+    const reliefMesh = pc?.group?.children?.find(c => c.geometry && c.geometry.attributes.position);
+
+    overlay.textContent = [
+      'avg frame: ' + fmt(outAvg) + 'ms  (' + Math.round(fps) + ' fps)',
+      'max frame: ' + fmt(outMax) + 'ms   (samples: ' + outN + ')',
+      'pixelRatio: ' + (s.renderer?.getPixelRatio?.() ?? '?'),
+      'dpr: ' + window.devicePixelRatio + '  vp: ' + window.innerWidth + 'x' + window.innerHeight,
+      'particles: ' + (s.particles?.points?.geometry?.attributes?.position?.count ?? '?'),
+      'relief verts: ' + (reliefMesh?.geometry?.attributes?.position?.count ?? 'none'),
+      'draw calls: ' + (ri?.calls ?? '?') + '   triangles: ' + (ri?.triangles ?? '?'),
+      'postfx: ' + (window.EDEN?._postfx ? 'on' : 'off'),
+      'smoother: ' + (window._edenSmoother ? 'on' : 'off'),
+    ].join('\n');
+    window.__EDEN_PERF__ = { avgFrame: fmt(outAvg), maxFrame: fmt(outMax), fps: Math.round(fps) };
+  }, 750);
 })();

@@ -24,8 +24,10 @@ export function createCursor(opts) {
   const mouse  = { x: window.innerWidth / 2, y: window.innerHeight / 2 };
   const target = { x: mouse.x, y: mouse.y };
 
-  // Trail afterglow — stores recent cursor positions for a fading trail.
-  const TRAIL_LEN = 12;
+  // Trail afterglow — a short ring buffer of recent positions. Kept short
+  // (was 12) because each trail node is a gradient fill per frame; 6 is
+  // visually identical and halves the draw cost.
+  const TRAIL_LEN = 6;
   const trail = [];
   for (let i = 0; i < TRAIL_LEN; i++) trail.push({ x: mouse.x, y: mouse.y });
 
@@ -42,14 +44,26 @@ export function createCursor(opts) {
   const onResize = () => {
     canvas.width = window.innerWidth;
     canvas.height = window.innerHeight;
+    // Clear the last-draw tracker on resize so we don't leave stale pixels.
+    lastDrawX = null; lastDrawY = null;
   };
 
   // Cached gradients — created once at (0,0), repositioned via translate each frame.
   let outerGrad = null;
   let innerGrad = null;
   let midGrad = null;
+
+  // Localized clear: track the bounding box of the last frame's draw so we
+  // can clear only that region instead of the full viewport. The largest
+  // drawable element is the outer glow (90px radius) + trail, so clear a
+  // generous box. Saves ~990×720px of clearRect work every frame.
+  const GLOW_R = 90;
+  const TRAIL_SPREAD = 80;          // max distance a trail node can be behind
+  const CLEAR_BOX = GLOW_R + TRAIL_SPREAD + 10;
+  let lastDrawX = null, lastDrawY = null;
+
   const rebuildGradients = () => {
-    outerGrad = ctx.createRadialGradient(0, 0, 0, 0, 0, 90);
+    outerGrad = ctx.createRadialGradient(0, 0, 0, 0, 0, GLOW_R);
     outerGrad.addColorStop(0, 'rgba(196, 148, 58, 0.08)');
     outerGrad.addColorStop(0.5, 'rgba(139, 94, 60, 0.03)');
     outerGrad.addColorStop(1, 'rgba(196, 148, 58, 0)');
@@ -89,13 +103,20 @@ export function createCursor(opts) {
     mouse.x += (target.x - mouse.x) * 0.12;
     mouse.y += (target.y - mouse.y) * 0.12;
 
+    if (!outerGrad || !innerGrad || !midGrad) return;
+
     // Shift trail positions — newest at index 0.
     trail.unshift({ x: mouse.x, y: mouse.y });
     if (trail.length > TRAIL_LEN) trail.pop();
 
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-    if (!outerGrad || !innerGrad || !midGrad) return;
+    // Localized clear: wipe the union of last + current draw regions. Much
+    // cheaper than clearing the whole viewport when the cursor is small.
+    if (lastDrawX !== null) {
+      ctx.clearRect(lastDrawX - CLEAR_BOX, lastDrawY - CLEAR_BOX,
+                    CLEAR_BOX * 2, CLEAR_BOX * 2);
+    }
+    ctx.clearRect(mouse.x - CLEAR_BOX, mouse.y - CLEAR_BOX,
+                  CLEAR_BOX * 2, CLEAR_BOX * 2);
 
     // Draw trail afterglow — fading copies behind the cursor.
     for (let i = TRAIL_LEN - 1; i >= 1; i--) {
@@ -116,9 +137,9 @@ export function createCursor(opts) {
 
     // Outer glow — large, very soft.
     ctx.fillStyle = outerGrad;
-    ctx.fillRect(-90, -90, 180, 180);
+    ctx.fillRect(-GLOW_R, -GLOW_R, GLOW_R * 2, GLOW_R * 2);
 
-    // Mid glow — warm过渡 layer.
+    // Mid glow — warm transition layer.
     ctx.fillStyle = midGrad;
     ctx.beginPath();
     ctx.arc(0, 0, 30, 0, Math.PI * 2);
@@ -131,6 +152,9 @@ export function createCursor(opts) {
     ctx.fill();
 
     ctx.restore();
+
+    lastDrawX = mouse.x;
+    lastDrawY = mouse.y;
 
     // Move the 3D PointLight to match (screen → world).
     const wp = getWorldPosition();
