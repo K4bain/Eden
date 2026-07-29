@@ -83,7 +83,7 @@ export function createParticles(opts = {}) {
 
   // Vertex colors + round soft points. NormalBlending — bloom handles the glow.
   const material = new THREE.PointsMaterial({
-    size: isMobile ? 0.035 : 0.028,
+    size: isMobile ? 0.04 : 0.032,
     sizeAttenuation: true,
     vertexColors: true,
     transparent: true,

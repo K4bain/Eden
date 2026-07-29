@@ -44,12 +44,12 @@ export async function createPostProcessing(renderer, scene, camera) {
   composer.addPass(new RenderPass(scene, camera));
 
   // ── 1. UnrealBloomPass ──────────────────────────────────────────────────
-  // Threshold 0.4: only the brightest particles + cursor light glow.
-  // Strength 0.8: moderate glow.
-  // Radius 0.8: wide soft halo around bright points.
+  // Threshold 0.35: more particles + cursor light glow.
+  // Strength 1.0: stronger glow for cinematic feel.
+  // Radius 0.85: wide soft halo around bright points.
   const bloomPass = new UnrealBloomPass(
     new THREE.Vector2(window.innerWidth, window.innerHeight),
-    0.8, 0.8, 0.4
+    1.0, 0.85, 0.35
   );
   composer.addPass(bloomPass);
 

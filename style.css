@@ -182,17 +182,19 @@ html { cursor: none; }
   /* EDEN — Cormorant Garamond 700. Heavy, certain, final. */
   font-family: 'Cormorant Garamond', serif;
   font-weight: 700;
-  font-size: clamp(4rem, 12vw, 10rem);
+  font-size: clamp(4rem, 14vw, 12rem);
   letter-spacing: 0.2em;   /* animates 0.4em → 0.2em in Phase 2 revelation */
   color: var(--ivory);
   line-height: 1;
   white-space: nowrap;
   margin: 0 auto;
-  /* Subtle warm glow — depth against the void, not a harsh shadow. */
+  /* Deep warm glow — like light through ancient bark. */
   text-shadow:
-    0 0 40px rgba(196, 148, 58, 0.15),
-    0 0 80px rgba(139, 94, 60, 0.08),
-    0 2px 4px rgba(0, 0, 0, 0.3);
+    0 0 30px rgba(196, 148, 58, 0.25),
+    0 0 60px rgba(196, 148, 58, 0.15),
+    0 0 120px rgba(139, 94, 60, 0.1),
+    0 0 200px rgba(74, 158, 122, 0.05),
+    0 2px 4px rgba(0, 0, 0, 0.4);
 }
 
 .eden-secondary {
@@ -307,13 +309,29 @@ html { cursor: none; }
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 1.5rem;
-  padding: 4rem 2rem;
+  gap: 2rem;
+  padding: 6rem 2rem;
   text-align: center;
   opacity: 0;
   transform: translateY(40px);
   --line-h: 0px;
   --line-o: 0;
+  position: relative;
+}
+
+/* Subtle radial glow behind each section — atmospheric depth */
+.scroll-section::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(
+    ellipse 60% 50% at 50% 50%,
+    rgba(196, 148, 58, 0.03) 0%,
+    rgba(74, 158, 122, 0.015) 40%,
+    transparent 70%
+  );
+  pointer-events: none;
+  z-index: -1;
 }
 
 .scroll-section + .scroll-section::before {
@@ -322,20 +340,35 @@ html { cursor: none; }
   width: 1px;
   height: var(--line-h, 0px);
   background: linear-gradient(to bottom, transparent, var(--gold-edge), transparent);
-  margin-bottom: 2rem;
+  margin-bottom: 3rem;
   opacity: var(--line-o, 0);
+  box-shadow: 0 0 8px rgba(196, 148, 58, 0.3);
 }
 
 .scroll-quote {
   font-family: 'Cormorant Garamond', serif;
   font-weight: 300;
   font-style: italic;
-  font-size: clamp(1.4rem, 4vw, 3rem);
+  font-size: clamp(1.6rem, 4.5vw, 3.5rem);
   color: var(--ivory);
-  line-height: 1.5;
+  line-height: 1.4;
   letter-spacing: 0.04em;
-  text-shadow: 0 0 40px rgba(196, 148, 58, 0.12);
-  max-width: 20ch;
+  text-shadow:
+    0 0 40px rgba(196, 148, 58, 0.15),
+    0 0 80px rgba(139, 94, 60, 0.08);
+  max-width: 18ch;
+  position: relative;
+}
+
+/* Decorative em-dash before the quote */
+.scroll-quote::before {
+  content: '\2014';
+  display: block;
+  font-size: 0.4em;
+  color: var(--amber);
+  opacity: 0.4;
+  margin-bottom: 1.5rem;
+  letter-spacing: 0.5em;
 }
 
 .scroll-attribution {
@@ -343,39 +376,46 @@ html { cursor: none; }
   font-weight: 300;
   font-size: clamp(0.7rem, 1.2vw, 0.9rem);
   color: var(--amber);
-  letter-spacing: 0.25em;
+  letter-spacing: 0.3em;
   text-transform: uppercase;
-  opacity: 0.6;
+  opacity: 0.5;
+  margin-top: 0.5rem;
 }
 
 .scroll-philosophy {
   font-family: 'Cormorant Garamond', serif;
   font-weight: 300;
-  font-size: clamp(1.1rem, 2.5vw, 1.8rem);
+  font-size: clamp(1.2rem, 2.8vw, 2rem);
   color: var(--ivory);
-  line-height: 1.8;
-  letter-spacing: 0.06em;
+  line-height: 2;
+  letter-spacing: 0.08em;
   opacity: 0.85;
-  text-shadow: 0 0 30px rgba(74, 158, 122, 0.08);
+  text-shadow:
+    0 0 30px rgba(74, 158, 122, 0.1),
+    0 0 60px rgba(74, 158, 122, 0.05);
+  max-width: 22ch;
 }
 
 .scroll-philosophy em {
   color: var(--bio);
   font-style: italic;
+  text-shadow: 0 0 20px rgba(74, 158, 122, 0.2);
 }
 
 .scroll-coda {
   font-family: 'Cormorant Garamond', serif;
   font-weight: 300;
-  font-size: clamp(1rem, 2vw, 1.5rem);
+  font-size: clamp(1.1rem, 2.2vw, 1.7rem);
   color: var(--ivory);
-  line-height: 1.8;
-  letter-spacing: 0.08em;
+  line-height: 2;
+  letter-spacing: 0.1em;
   opacity: 0.7;
+  text-shadow: 0 0 30px rgba(196, 148, 58, 0.08);
+  max-width: 24ch;
 }
 
 .scroll-section--end {
-  min-height: 60vh;
+  min-height: 50vh;
 }
 
 .scroll-credit {
@@ -411,10 +451,11 @@ html { cursor: none; }
 
 .eden-name:hover {
   text-shadow:
-    0 0 60px rgba(196, 148, 58, 0.3),
-    0 0 120px rgba(139, 94, 60, 0.15),
-    0 0 200px rgba(74, 158, 122, 0.05),
-    0 2px 4px rgba(0, 0, 0, 0.3);
+    0 0 40px rgba(196, 148, 58, 0.4),
+    0 0 80px rgba(196, 148, 58, 0.25),
+    0 0 160px rgba(139, 94, 60, 0.15),
+    0 0 240px rgba(74, 158, 122, 0.08),
+    0 2px 4px rgba(0, 0, 0, 0.4);
 }
 
 /* ── 8. Accessibility / fallback hooks ───────────────────────────────────── */
