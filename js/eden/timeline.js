@@ -204,11 +204,112 @@
       // +3.8s — unlock scroll, then refresh ScrollTrigger (Gotcha #12)
       r.call(() => {
         document.body.style.overflow = ''; // eslint-disable-line no-self-assign
-        if (window.ScrollTrigger) window.ScrollTrigger.refresh();
+        if (window.ScrollTrigger) {
+          window.ScrollTrigger.refresh();
+          initScrollSections();
+          initEdenBreath();
+        }
         emit('eden:resolved');
       }, [], 3.8);
 
       tl.add(r, tl.time());
+    }
+
+    // ── Scroll section animations ────────────────────────────────────────────
+    // Each .scroll-section fades in + translates up as it enters the viewport.
+    // Parallax depth is driven by data-speed (lower = slower, deeper).
+    function initScrollSections() {
+      if (!window.gsap || !window.ScrollTrigger) return;
+
+      const sections = document.querySelectorAll('.scroll-section');
+      sections.forEach((section, index) => {
+        const speed = parseFloat(section.dataset.speed) || 0.6;
+
+        // Reveal the section.
+        gsap.to(section, {
+          opacity: 1,
+          y: 0,
+          duration: 1.2,
+          ease: 'power2.out',
+          scrollTrigger: {
+            trigger: section,
+            start: 'top 85%',
+            end: 'top 20%',
+            scrub: 1.5 * speed,
+          },
+        });
+
+        // Reveal the decorative line between sections.
+        if (index > 0) {
+          gsap.fromTo(section,
+            { '--line-h': '0px', '--line-o': 0 },
+            {
+              '--line-h': '60px', '--line-o': 0.4,
+              ease: 'power2.out',
+              scrollTrigger: {
+                trigger: section,
+                start: 'top 80%',
+                end: 'top 50%',
+                scrub: 1,
+              },
+            }
+          );
+        }
+
+        // Parallax: inner content drifts at a different rate than the section.
+        const inner = section.querySelector('.scroll-quote, .scroll-philosophy, .scroll-coda, .scroll-credit');
+        if (inner) {
+          gsap.fromTo(inner,
+            { y: 30 * speed },
+            {
+              y: -20 * speed,
+              ease: 'none',
+              scrollTrigger: {
+                trigger: section,
+                start: 'top bottom',
+                end: 'bottom top',
+                scrub: 2,
+              },
+            }
+          );
+        }
+      });
+    }
+
+    // ── EDEN text breathing pulse ────────────────────────────────────────────
+    // After the reveal, the text glows softly — a slow sine oscillation on
+    // text-shadow opacity, harmonized with the particle field breath.
+    function initEdenBreath() {
+      if (!window.gsap || !window.ScrollTrigger) return;
+
+      const name = document.querySelector('.eden-name');
+      const opening = document.querySelector('.eden-opening');
+      const secondary = document.querySelector('.eden-secondary');
+      if (!name) return;
+
+      // Subtle opacity pulse: 1.0 → 0.85 → 1.0, 7s cycle
+      gsap.to(name, {
+        opacity: 0.85,
+        duration: 3.5,
+        ease: 'sine.inOut',
+        yoyo: true,
+        repeat: -1,
+      });
+
+      // Fade EDEN text as user scrolls past the reveal.
+      const fadeTargets = [name, opening, secondary].filter(Boolean);
+      gsap.to(fadeTargets, {
+        opacity: 0,
+        y: -30,
+        ease: 'power2.in',
+        stagger: 0.1,
+        scrollTrigger: {
+          trigger: '#scroll-content',
+          start: 'top bottom',
+          end: 'top 60%',
+          scrub: 1.5,
+        },
+      });
     }
 
     tl.play();

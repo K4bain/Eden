@@ -86,8 +86,8 @@ export function createCursor(opts) {
   // Called every frame from the scene render loop.
   const update = () => {
     // Lerp — cursor lags slightly, feels like light drifting (§17).
-    mouse.x += (target.x - mouse.x) * 0.08;
-    mouse.y += (target.y - mouse.y) * 0.08;
+    mouse.x += (target.x - mouse.x) * 0.12;
+    mouse.y += (target.y - mouse.y) * 0.12;
 
     // Shift trail positions — newest at index 0.
     trail.unshift({ x: mouse.x, y: mouse.y });

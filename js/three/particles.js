@@ -103,6 +103,14 @@ export function createParticles(opts = {}) {
   const PULL_RADIUS_SQ = PULL_RADIUS * PULL_RADIUS;
   const PULL_STRENGTH = 0.0008;
 
+  // Scroll depth: 0 at top, 1 at bottom. Drives particle expansion.
+  let scrollDepth = 0;
+  const onScroll = () => {
+    const max = document.documentElement.scrollHeight - window.innerHeight;
+    scrollDepth = max > 0 ? window.scrollY / max : 0;
+  };
+  window.addEventListener('scroll', onScroll, { passive: true });
+
   // Curl noise helpers — creates organic, fluid particle motion.
   // Simple 3D noise via hashing (no texture lookup needed).
   const noise3D = (x, y, z) => {
@@ -138,6 +146,17 @@ export function createParticles(opts = {}) {
       pos[i3]     += cn.x * noiseForce;
       pos[i3 + 1] += cn.y * noiseForce + vy[i] * (1 + surgeFactor * 4);
       pos[i3]     += Math.sin(time * 0.6 + phase[i]) * 0.0001;
+
+      // Scroll-driven expansion: particles drift outward as you scroll deeper.
+      // Creates a sense of the field opening up, revealing more space.
+      if (scrollDepth > 0.05) {
+        const expand = scrollDepth * 0.003;
+        const px = pos[i3];
+        const py = pos[i3 + 1];
+        const len = Math.sqrt(px * px + py * py) || 1;
+        pos[i3]     += (px / len) * expand;
+        pos[i3 + 1] += (py / len) * expand;
+      }
 
       // Cursor pull (§8: inverse-falloff drift toward warmth).
       if (cursorWorld) {
