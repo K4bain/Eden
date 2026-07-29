@@ -214,8 +214,9 @@ export function initScene() {
     particles.update(t, cursorWorld);
 
     // GSAP breathing: modulate particle opacity by the shared breath state.
-    // breath.particle oscillates ±0.15 — applied as a ratio around 1.0.
-    particles.points.material.opacity *= (1 + breath.particle);
+    // breath.particle oscillates ±0.15 — applied as offset around base opacity.
+    if (particles._baseOp == null) particles._baseOp = particles.points.material.opacity;
+    particles.points.material.opacity = particles._baseOp + breath.particle;
 
     // GSAP breathing: modulate cursor light intensity by breath state.
     // breath.light oscillates ±0.4 — applied additively around the tracked value.
