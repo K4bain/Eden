@@ -39,12 +39,12 @@ export function createParticles(opts = {}) {
   const vy     = new Float32Array(count);
   const targetOpacity = new Float32Array(count);
 
-  // Eden palette (§6) — vivid, saturated colors visible with normal blending.
-  const C_AMBER_LO = new THREE.Color('#c49030');
-  const C_AMBER_HI = new THREE.Color('#f0d880');
-  const C_BIO_LO   = new THREE.Color('#30b878');
-  const C_BIO_HI   = new THREE.Color('#80e8b0');
-  const C_FAINT    = new THREE.Color('#407058');
+  // Eden palette — warm amber/gold tones visible on white background.
+  const C_AMBER_LO = new THREE.Color('#c4943a');
+  const C_AMBER_HI = new THREE.Color('#d4a854');
+  const C_BIO_LO   = new THREE.Color('#6aaa88');
+  const C_BIO_HI   = new THREE.Color('#88ccaa');
+  const C_FAINT    = new THREE.Color('#b8a890');
   const tmp = new THREE.Color();
 
   const sizeMin = isMobile ? 0.015 : 0.010;

@@ -14,12 +14,12 @@
 
 /* ── 0. Color tokens (Section 6) ──────────────────────────────────────────── */
 :root {
-  --void:        #060a08;   /* soil at night, never pure black */
-  --amber:       #8B5E3C;   /* deep amber — candlelight through bark */
+  --void:        #f0ece4;   /* warm cream — the paper surface */
+  --amber:       #8B5E3C;   /* deep amber — carved shadows */
   --bio:         #4a9e7a;   /* bioluminescent green */
-  --gold-edge:   #C4943A;   /* warm gold — brightest illuminated points */
-  --ivory:       #D4C9B8;   /* warm off-white — how text appears */
-  --shadow:      #0d1a12;   /* the color just beyond the light */
+  --gold-edge:   #C4943A;   /* warm gold — illuminated edges */
+  --ivory:       #2a2420;   /* dark warm text on white */
+  --shadow:      #d8d0c4;   /* subtle shadow tone */
 }
 
 /* ── 1. Reset ─────────────────────────────────────────────────────────────── */
@@ -80,55 +80,58 @@ html { cursor: none; }
 }
 
 /* ── 3. Layer stack (z-index, Section 12) ────────────────────────────────── */
-#unicorn-bg      { z-index: -2; }   /* Unicorn Studio WebGL background */
-#webgl-canvas    { z-index: -1; }   /* EDEN particles (transparent canvas) */
+#webgl-canvas    { z-index: -1; }   /* paper-cut relief + particles (transparent) */
 #cursor-canvas   { z-index:  0; }   /* custom cursor light */
-#bg-main         { z-index:  1; display: none; }   /* replaced by Unicorn */
-#bg-atmosphere   { z-index:  2; display: none; }   /* replaced by Unicorn */
+#bg-main         { z-index:  1; }
+#bg-atmosphere   { z-index:  2; }
 #vignette        { z-index:  3; }
 #grain           { z-index:  4; }
 #eden-content    { z-index: 10; }
 #loading-screen { z-index: 20; }
 
 /* ── 4. Background layers ────────────────────────────────────────────────── */
-/* z:1 — main painting surface. HIDDEN — Unicorn Studio WebGL replaces it. */
+/* z:1 — main painting surface. White paper-cut relief. */
 #bg-main {
-  display: none;
+  background: #f0ece4;
 }
 
-/* z:2 — secondary atmosphere. HIDDEN — Unicorn Studio WebGL replaces it. */
+/* z:2 — secondary atmosphere. Subtle warm gradient. */
 #bg-atmosphere {
-  display: none;
+  background: radial-gradient(
+    ellipse 80% 70% at 50% 50%,
+    rgba(240, 236, 228, 0.3) 0%,
+    rgba(220, 210, 195, 0.1) 50%,
+    transparent 100%
+  );
 }
 
 /* z:3 — vignette. Asymmetric radial gradients layered for organic feel.
-   Not a single ellipse — two offset gradients create depth. */
+   Subtle warm edges on white — like aged paper. */
 #vignette {
   background:
     radial-gradient(
       ellipse 70% 65% at 45% 48%,
       transparent 0%,
-      transparent 30%,
-      rgba(6, 10, 8, 0.7) 70%,
-      rgba(6, 10, 8, 0.95) 100%
+      transparent 40%,
+      rgba(200, 190, 175, 0.15) 70%,
+      rgba(180, 170, 155, 0.25) 100%
     ),
     radial-gradient(
       ellipse 90% 80% at 55% 52%,
       transparent 0%,
-      transparent 40%,
-      rgba(13, 26, 18, 0.6) 100%
+      transparent 50%,
+      rgba(200, 190, 175, 0.1) 100%
     );
 }
 
 /* z:4 — film grain. Procedural SVG noise tile (data URI) so Phase 1 ships
-   without a raster asset. Phase 1 reads as soft organic texture. The real
-   grain.webp (Section 10) replaces this when available. */
+   without a raster asset. Subtle texture on white paper. */
 #grain {
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='256' height='256'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='1'/%3E%3C/svg%3E");
   background-size: 256px 256px;
   background-repeat: repeat;
-  opacity: 0.06;
-  mix-blend-mode: overlay;
+  opacity: 0.03;
+  mix-blend-mode: multiply;
 }
 
 /* ── 5. Content (Section 12 / 13) ────────────────────────────────────────── */
@@ -158,7 +161,7 @@ html { cursor: none; }
   opacity: 0.7;
   line-height: 1.2;
   font-style: italic;
-  text-shadow: 0 0 30px rgba(196, 148, 58, 0.1);
+  text-shadow: 0 0 30px rgba(139, 94, 60, 0.06);
 }
 
 .eden-name {
@@ -171,13 +174,11 @@ html { cursor: none; }
   line-height: 1;
   white-space: nowrap;
   margin: 0 auto;
-  /* Deep warm glow — like light through ancient bark. */
+  /* Carved shadow — like letters pressed into paper. */
   text-shadow:
-    0 0 30px rgba(196, 148, 58, 0.25),
-    0 0 60px rgba(196, 148, 58, 0.15),
-    0 0 120px rgba(139, 94, 60, 0.1),
-    0 0 200px rgba(74, 158, 122, 0.05),
-    0 2px 4px rgba(0, 0, 0, 0.4);
+    0 0 30px rgba(139, 94, 60, 0.15),
+    0 0 60px rgba(139, 94, 60, 0.08),
+    0 2px 4px rgba(0, 0, 0, 0.08);
 }
 
 .eden-secondary {
@@ -190,7 +191,7 @@ html { cursor: none; }
   text-transform: uppercase;
   color: var(--amber);
   opacity: 0;
-  text-shadow: 0 0 20px rgba(139, 94, 60, 0.2);
+  text-shadow: 0 0 20px rgba(139, 94, 60, 0.1);
 }
 
 /* ── Phase 2 initial states (gated on .js so no-JS still shows content) ──── */
@@ -211,16 +212,16 @@ html { cursor: none; }
   background: linear-gradient(
     to bottom,
     transparent 0%,
-    var(--gold-edge) 30%,
-    var(--amber) 80%,
-    rgba(139, 94, 60, 0.3) 100%
+    var(--amber) 30%,
+    var(--gold-edge) 80%,
+    rgba(196, 148, 58, 0.3) 100%
   );
   transform: translateX(-50%) scaleY(0);
   transform-origin: center top;
   z-index: 10;
   pointer-events: none;
   opacity: 0.7;
-  box-shadow: 0 0 6px rgba(196, 148, 58, 0.3);
+  box-shadow: 0 0 6px rgba(196, 148, 58, 0.2);
 }
 #scroll-hint.is-visible {
   animation: hint-fall 2.4s ease-in-out infinite;
@@ -232,13 +233,10 @@ html { cursor: none; }
 }
 
 /* ── Chromatic aberration spike (§13, REVELATION +2.0s) ──────────────────── */
-/* Phase 2: CSS-driven via a transient class on #eden-content. Phase 4 will
-   replace this with the GLSL ShaderPass on the WebGL composer. The spike IS
-   the dread — brief, then gone. */
 @keyframes eden-chromatic {
   0%   { filter: none; }
-  50%  { filter: drop-shadow(1px 0 0 rgba(196,148,58,0.5))
-                  drop-shadow(-1px 0 0 rgba(74,158,122,0.5)); }
+  50%  { filter: drop-shadow(1px 0 0 rgba(196,148,58,0.3))
+                  drop-shadow(-1px 0 0 rgba(74,158,122,0.3)); }
   100% { filter: none; }
 }
 #eden-content.chromatic-active {
@@ -309,8 +307,8 @@ html { cursor: none; }
   inset: 0;
   background: radial-gradient(
     ellipse 60% 50% at 50% 50%,
-    rgba(196, 148, 58, 0.03) 0%,
-    rgba(74, 158, 122, 0.015) 40%,
+    rgba(196, 148, 58, 0.04) 0%,
+    rgba(139, 94, 60, 0.02) 40%,
     transparent 70%
   );
   pointer-events: none;
@@ -322,10 +320,10 @@ html { cursor: none; }
   display: block;
   width: 1px;
   height: var(--line-h, 0px);
-  background: linear-gradient(to bottom, transparent, var(--gold-edge), transparent);
+  background: linear-gradient(to bottom, transparent, var(--amber), transparent);
   margin-bottom: 3rem;
   opacity: var(--line-o, 0);
-  box-shadow: 0 0 8px rgba(196, 148, 58, 0.3);
+  box-shadow: 0 0 8px rgba(196, 148, 58, 0.15);
 }
 
 .scroll-quote {
@@ -337,8 +335,8 @@ html { cursor: none; }
   line-height: 1.4;
   letter-spacing: 0.04em;
   text-shadow:
-    0 0 40px rgba(196, 148, 58, 0.15),
-    0 0 80px rgba(139, 94, 60, 0.08);
+    0 0 40px rgba(139, 94, 60, 0.08),
+    0 0 80px rgba(139, 94, 60, 0.04);
   max-width: 18ch;
   position: relative;
 }
@@ -374,15 +372,15 @@ html { cursor: none; }
   letter-spacing: 0.08em;
   opacity: 0.85;
   text-shadow:
-    0 0 30px rgba(74, 158, 122, 0.1),
-    0 0 60px rgba(74, 158, 122, 0.05);
+    0 0 30px rgba(74, 158, 122, 0.06),
+    0 0 60px rgba(74, 158, 122, 0.03);
   max-width: 22ch;
 }
 
 .scroll-philosophy em {
-  color: var(--bio);
+  color: #4a9e7a;
   font-style: italic;
-  text-shadow: 0 0 20px rgba(74, 158, 122, 0.2);
+  text-shadow: 0 0 20px rgba(74, 158, 122, 0.1);
 }
 
 .scroll-coda {
@@ -393,7 +391,7 @@ html { cursor: none; }
   line-height: 2;
   letter-spacing: 0.1em;
   opacity: 0.7;
-  text-shadow: 0 0 30px rgba(196, 148, 58, 0.08);
+  text-shadow: 0 0 30px rgba(139, 94, 60, 0.04);
   max-width: 24ch;
 }
 
@@ -414,7 +412,7 @@ html { cursor: none; }
   font-size: clamp(1.5rem, 4vw, 3rem);
   letter-spacing: 0.3em;
   color: var(--ivory);
-  text-shadow: 0 0 30px rgba(196, 148, 58, 0.1);
+  text-shadow: 0 0 30px rgba(139, 94, 60, 0.06);
 }
 
 .scroll-credit__by {
@@ -434,11 +432,10 @@ html { cursor: none; }
 
 .eden-name:hover {
   text-shadow:
-    0 0 40px rgba(196, 148, 58, 0.4),
-    0 0 80px rgba(196, 148, 58, 0.25),
-    0 0 160px rgba(139, 94, 60, 0.15),
-    0 0 240px rgba(74, 158, 122, 0.08),
-    0 2px 4px rgba(0, 0, 0, 0.4);
+    0 0 40px rgba(139, 94, 60, 0.2),
+    0 0 80px rgba(139, 94, 60, 0.12),
+    0 0 160px rgba(139, 94, 60, 0.06),
+    0 2px 4px rgba(0, 0, 0, 0.08);
 }
 
 /* ── 8. Accessibility / fallback hooks ───────────────────────────────────── */
@@ -452,18 +449,6 @@ html { cursor: none; }
   overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
 }
 
-/* ── Unicorn Studio watermark hider ──────────────────────────────────────── */
-[data-us-project] ~ a,
-div[class*="watermark"],
-div[class*="Watermark"],
-div[class*="brand"],
-a[href*="unicorn.studio"],
-a[href*="unicornstudio"],
-a[href*="hiunicornstudio"],
-.us-branding,
-[data-us-branding] {
-  display: none !important;
-  opacity: 0 !important;
-  visibility: hidden !important;
-  pointer-events: none !important;
-}
+/* ── Paper-cut relief styles ────────────────────────────────────────────── */
+/* The paper-cut relief is rendered via Three.js — no CSS needed for it.
+   The bg-main/atmosphere provide the base white/cream background. */
