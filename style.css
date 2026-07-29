@@ -149,6 +149,7 @@ html { cursor: none; }
   pointer-events: auto;
   text-align: center;
   padding: 1rem;
+  perspective: 800px;
 }
 
 .eden-opening {

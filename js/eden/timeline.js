@@ -241,6 +241,7 @@
           window.ScrollTrigger.refresh();
           initScrollSections();
           initEdenBreath();
+          initCursorParallax();
         }
         emit('eden:resolved');
       }, [], 3.8);
@@ -287,50 +288,70 @@
       sections.forEach((section, index) => {
         const speed = parseFloat(section.dataset.speed) || 0.6;
 
-        // Reveal the section.
-        gsap.to(section, {
-          opacity: 1,
-          y: 0,
-          duration: 1.2,
-          ease: window.CustomEase ? 'eden-breath' : 'power2.out',
-          scrollTrigger: {
-            trigger: section,
-            start: 'top 85%',
-            end: 'top 20%',
-            scrub: 1.5 * speed,
-          },
-        });
+        // Reveal the section — with scale for extra pop.
+        gsap.fromTo(section,
+          { opacity: 0, y: 60, scale: 0.97 },
+          {
+            opacity: 1, y: 0, scale: 1,
+            duration: 1.4,
+            ease: window.CustomEase ? 'eden-breath' : 'power2.out',
+            scrollTrigger: {
+              trigger: section,
+              start: 'top 90%',
+              end: 'top 30%',
+              scrub: 1.2,
+            },
+          }
+        );
 
-        // Reveal the decorative line between sections.
+        // Decorative line between sections — grows up with a glow.
         if (index > 0) {
           gsap.fromTo(section,
             { '--line-h': '0px', '--line-o': 0 },
             {
-              '--line-h': '60px', '--line-o': 0.4,
+              '--line-h': '80px', '--line-o': 0.6,
               ease: window.CustomEase ? 'eden-breath' : 'power2.out',
               scrollTrigger: {
                 trigger: section,
-                start: 'top 80%',
-                end: 'top 50%',
+                start: 'top 85%',
+                end: 'top 45%',
                 scrub: 1,
               },
             }
           );
         }
 
-        // Parallax: inner content drifts at different rate.
+        // Parallax: inner content drifts at different rate with a gentle scale.
         const inner = section.querySelector('.scroll-quote, .scroll-philosophy, .scroll-coda, .scroll-credit');
         if (inner) {
           gsap.fromTo(inner,
-            { y: 30 * speed },
+            { y: 40 * speed, scale: 0.98 },
             {
-              y: -20 * speed,
+              y: -30 * speed, scale: 1,
               ease: window.CustomEase ? 'eden-drift' : 'none',
               scrollTrigger: {
                 trigger: section,
                 start: 'top bottom',
                 end: 'bottom top',
-                scrub: 2,
+                scrub: 2.5,
+              },
+            }
+          );
+        }
+
+        // Subtle rotation on the quote sections — organic sway.
+        const quote = section.querySelector('.scroll-quote');
+        if (quote) {
+          gsap.fromTo(quote,
+            { rotation: -1.5 },
+            {
+              rotation: 1.5,
+              ease: 'sine.inOut',
+              scrollTrigger: {
+                trigger: section,
+                start: 'top bottom',
+                end: 'bottom top',
+                scrub: 3,
               },
             }
           );
@@ -338,9 +359,8 @@
       });
     }
 
-    // ── EDEN text breathing pulse ──────────────────────────────────────────
-    // After reveal, the text glows softly — a slow sine oscillation on
-    // text-shadow opacity, harmonized with particle field breath.
+    // ── EDEN stays pinned until scroll ────────────────────────────────────
+    // The text is fixed until the user scrolls, then fades away smoothly.
     function initEdenBreath() {
       if (!window.gsap || !window.ScrollTrigger) return;
 
@@ -349,28 +369,60 @@
       const secondaryEl = document.querySelector('.eden-secondary');
       if (!nameEl) return;
 
-      // Subtle opacity pulse: 1.0 → 0.85 → 1.0, 7s cycle
-      gsap.to(nameEl, {
-        opacity: 0.85,
-        duration: 3.5,
-        ease: window.CustomEase ? 'eden-breath' : 'sine.inOut',
-        yoyo: true,
-        repeat: -1,
+      // No breathing pulse — EDEN stays at full opacity until scroll.
+      // Pin the text so it stays visible as the scroll begins.
+      ScrollTrigger.create({
+        trigger: '#smooth-content',
+        start: 'top bottom',
+        end: 'top 30%',
+        onEnter: () => { /* stays visible */ },
+        onLeaveBack: () => { /* stays visible */ },
       });
 
-      // Fade EDEN text as user scrolls past the reveal.
+      // Fade EDEN text as user scrolls — but only after scrolling past the initial viewport.
       const fadeTargets = [nameEl, openingEl, secondaryEl].filter(Boolean);
       gsap.to(fadeTargets, {
         opacity: 0,
-        y: -30,
-        ease: window.CustomEase ? 'eden-breath' : 'power2.in',
-        stagger: 0.1,
+        y: -40,
+        scale: 0.95,
+        ease: 'power2.inOut',
+        stagger: 0.15,
         scrollTrigger: {
           trigger: '#smooth-content',
-          start: 'top bottom',
-          end: 'top 60%',
+          start: 'top 30%',
+          end: 'top 80%',
           scrub: 1.5,
         },
+      });
+
+      // Text glow pulse — subtle warm oscillation on text-shadow instead of opacity.
+      gsap.to(nameEl, {
+        textShadow: '0 0 40px rgba(139,94,60,0.25), 0 0 80px rgba(139,94,60,0.12), 0 2px 4px rgba(0,0,0,0.08)',
+        duration: 3,
+        ease: 'sine.inOut',
+        yoyo: true,
+        repeat: -1,
+      });
+    }
+
+    // ── Cursor parallax — EDEN text tilts slightly toward mouse ───────────
+    // Makes the site feel alive and responsive without being distracting.
+    function initCursorParallax() {
+      const nameEl = document.querySelector('.eden-name');
+      if (!nameEl) return;
+
+      document.addEventListener('mousemove', (e) => {
+        const x = (e.clientX / window.innerWidth - 0.5) * 2;  // -1 to 1
+        const y = (e.clientY / window.innerHeight - 0.5) * 2;
+        gsap.to(nameEl, {
+          x: x * 8,
+          y: y * 4,
+          rotateX: -y * 3,
+          rotateY: x * 3,
+          duration: 1.2,
+          ease: 'power2.out',
+          overwrite: 'auto',
+        });
       });
     }
 

@@ -109,9 +109,9 @@ function bakeNoiseMask(revealProgress, time) {
         a *= 0.5;
       }
       n = n * 0.5 + 0.5; // remap [-1,1] → [0,1]
-      let alpha = (n - (threshold - 0.15)) / 0.3; // smoothstep band
+      let alpha = (n - (threshold - 0.2)) / 0.4; // Wider smoothstep = softer edges
       alpha = alpha < 0 ? 0 : alpha > 1 ? 1 : alpha;
-      alpha = Math.pow(alpha, 0.8);
+      alpha = Math.pow(alpha, 0.6); // Softer falloff
       const idx = (py * MASK_W + px) * 4;
       d[idx] = d[idx + 1] = d[idx + 2] = 255;
       d[idx + 3] = (alpha * 255) | 0;
@@ -216,27 +216,18 @@ export function createPaperCut(opts = {}) {
   group.add(particles);
 
   // ── Reveal + mask-bake state ────────────────────────────────────────────
-  let revealProgress = 0;
-  let revealStartTime = 0;
-  let revealDuration = 2000;
-  let isRevealing = false;
+  let revealProgress = 0.7;     // Start partially visible — relief shows immediately
+  let revealTarget = 0.7;       // Lerps toward this
   let lastBakeTime = -1;
-  const BAKE_INTERVAL = 0.2; // re-bake mask every 200ms (5x/sec)
+  const BAKE_INTERVAL = 0.2;
 
   const update = (time) => {
-    // Animate reveal progress.
-    if (isRevealing) {
-      const elapsed = performance.now() - revealStartTime;
-      const t = Math.min(elapsed / revealDuration, 1);
-      revealProgress = 1 - Math.pow(1 - t, 3);
-      if (t >= 1) { isRevealing = false; revealProgress = 1; }
-    }
+    // Smoothly lerp reveal toward target.
+    revealProgress += (revealTarget - revealProgress) * 0.03;
 
     // Re-bake noise mask periodically — preserves the flowing drift without
-    // the per-frame GPU cost. During reveal (progress changing) bake every
-    // frame so the reveal edge stays smooth.
-    const interval = isRevealing ? 0 : BAKE_INTERVAL;
-    if (lastBakeTime < 0 || (time - lastBakeTime) >= interval) {
+    // the per-frame GPU cost.
+    if (lastBakeTime < 0 || (time - lastBakeTime) >= BAKE_INTERVAL) {
       lastBakeTime = time;
       reliefMat.uniforms.uMaskMap.value = bakeNoiseMask(revealProgress, time);
     }
@@ -256,12 +247,11 @@ export function createPaperCut(opts = {}) {
     reliefMesh.scale.set(1 + breathe, 1 + breathe, 1);
   };
 
-  const reveal = (duration = 2000) => {
-    revealStartTime = performance.now();
-    revealDuration = duration;
-    isRevealing = true;
-    revealProgress = 0;
-    lastBakeTime = -1; // force immediate re-bake
+  const reveal = (duration = 2500) => {
+    // Revelation opens the mask fully, then settles back after duration.
+    revealTarget = 1.0;
+    setTimeout(() => { revealTarget = 0.8; }, duration);
+    lastBakeTime = -1;
     pMat.opacity = 0;
   };
 
