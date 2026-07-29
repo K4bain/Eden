@@ -72,7 +72,7 @@ export function initScene() {
   // ── Particles ─────────────────────────────────────────────────────────────
   // Perf: desktop count lowered 1400 → 800. The field still reads as full at
   // this density, and it cuts the per-frame CPU loop + buffer upload by ~43%.
-  const particles = createParticles({ count: isMobile ? 300 : 1500, isMobile });
+  const particles = createParticles({ count: isMobile ? 200 : 800, isMobile });
   scene.add(particles.points);
 
   // ── Background (painted surface) ─────────────────────────────────────────

@@ -98,8 +98,7 @@
     html, body { background: #060a08; }
   </style>
 
-  <!-- Splitting.js CSS (char/word split styling) — loaded before style.css -->
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/splitting@1.0.6/dist/splitting.css" />
+  <!-- GSAP Club plugins (vendor/gsap/) for Awwwards-level scroll + text animation -->
 
   <link rel="stylesheet" href="./style.css" />
 </head>
@@ -140,34 +139,37 @@
   <div id="scroll-hint" aria-hidden="true"></div>
 
   <!-- 12 · Scroll content — reveals after the EDEN moment -->
-  <section id="scroll-content" aria-hidden="true">
-    <div class="scroll-section" data-speed="0.8">
-      <p class="scroll-quote">"Every act of creation<br/>is an act of uncreation."</p>
-      <span class="scroll-attribution">— Pablo Picasso</span>
-    </div>
+  <!-- ScrollSmoother: wrapper = viewport, content = full scrollable height -->
+  <div id="smooth-wrapper">
+    <section id="smooth-content">
+      <div class="scroll-section" data-speed="0.8">
+        <p class="scroll-quote">"Every act of creation<br/>is an act of uncreation."</p>
+        <span class="scroll-attribution">— Pablo Picasso</span>
+      </div>
 
-    <div class="scroll-section" data-speed="0.6">
-      <p class="scroll-philosophy">
-        To see things as they are,<br/>
-        not as they appear.<br/>
-        <em>Saper vedere.</em>
-      </p>
-    </div>
+      <div class="scroll-section" data-speed="0.6">
+        <p class="scroll-philosophy">
+          To see things as they are,<br/>
+          not as they appear.<br/>
+          <em>Saper vedere.</em>
+        </p>
+      </div>
 
-    <div class="scroll-section" data-speed="0.4">
-      <p class="scroll-coda">
-        In the beginning, there was nothing.<br/>
-        Then there was everything.
-      </p>
-    </div>
+      <div class="scroll-section" data-speed="0.4">
+        <p class="scroll-coda">
+          In the beginning, there was nothing.<br/>
+          Then there was everything.
+        </p>
+      </div>
 
-    <div class="scroll-section scroll-section--end" data-speed="0.2">
-      <p class="scroll-credit">
-        <span class="scroll-credit__label">EDEN</span>
-        <span class="scroll-credit__by">by Aylux</span>
-      </p>
-    </div>
-  </section>
+      <div class="scroll-section scroll-section--end" data-speed="0.2">
+        <p class="scroll-credit">
+          <span class="scroll-credit__label">EDEN</span>
+          <span class="scroll-credit__by">by Aylux</span>
+        </p>
+      </div>
+    </section>
+  </div>
 
   <!-- 20 · Loading screen — a breathing seed (fades out via js/main.js) -->
   <div id="loading-screen" aria-hidden="true">
@@ -180,7 +182,8 @@
 
   <!--
     Phase 2/3 script chain.
-    - Classic (global) CDNs first: GSAP, ScrollTrigger, Splitting.
+    - Classic (global) CDNs first: GSAP, ScrollTrigger.
+    - GSAP Club plugins from vendor/gsap/: Observer, ScrollSmoother, SplitText, CustomEase, Flip, EasePack.
     - Phase 2 Eden files as classic scripts: loader.js, timeline.js.
     - Phase 3 Three.js + main.js as ES modules (importmap maps "three").
     NOTE: ES modules require http:// — open via `npx serve eden` or VS Code
@@ -188,7 +191,12 @@
   -->
   <script defer src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/ScrollTrigger.min.js"></script>
-  <script defer src="https://cdn.jsdelivr.net/npm/splitting@1.0.6/dist/splitting.min.js"></script>
+  <script defer src="./vendor/gsap/Observer.min.js"></script>
+  <script defer src="./vendor/gsap/ScrollSmoother.min.js"></script>
+  <script defer src="./vendor/gsap/SplitText.min.js"></script>
+  <script defer src="./vendor/gsap/CustomEase.min.js"></script>
+  <script defer src="./vendor/gsap/Flip.min.js"></script>
+  <script defer src="./vendor/gsap/EasePack.min.js"></script>
   <script defer src="./js/eden/loader.js"></script>
   <script defer src="./js/eden/timeline.js"></script>
 

@@ -89,7 +89,7 @@ import { initScene } from './three/scene.js';
     document.body.style.overflow = '';
   };
 
-  // Graceful fallback if GSAP/Splitting CDN didn't load (file:// blocks them,
+  // Graceful fallback if GSAP/SplitText CDN didn't load (file:// blocks them,
   // or the visitor is offline). Tell the story without choreographed motion.
   const staticFallback = () => {
     console.warn('[EDEN] GSAP unavailable — showing static reveal.');
@@ -122,9 +122,17 @@ import { initScene } from './three/scene.js';
 
     EDEN.loadEden().then(() => {
 
-      // Register ScrollTrigger plugin if present.
-      if (hasGSAP() && window.ScrollTrigger) {
-        gsap.registerPlugin(ScrollTrigger);
+      // Register GSAP plugins if present.
+      if (hasGSAP()) {
+        const plugins = [];
+        if (window.ScrollTrigger) plugins.push(ScrollTrigger);
+        if (window.Observer) plugins.push(Observer);
+        if (window.ScrollSmoother) plugins.push(ScrollSmoother);
+        if (window.SplitText) plugins.push(SplitText);
+        if (window.CustomEase) plugins.push(CustomEase);
+        if (window.Flip) plugins.push(Flip);
+        if (window.EasePack) plugins.push(EasePack);
+        if (plugins.length) gsap.registerPlugin(...plugins);
       }
 
       // PHASE 3: boot the Three.js scene + cursor light now (it listens for

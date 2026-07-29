@@ -134,8 +134,8 @@ check(/cdn\.jsdelivr\.net\/npm\/gsap@3\.12\.5/.test(html),
   'GSAP 3.12.5 CDN present');
 check(/cdn\.jsdelivr\.net\/npm\/gsap@3\.12\.5\/dist\/ScrollTrigger/.test(html),
   'ScrollTrigger CDN present');
-check(/cdn\.jsdelivr\.net\/npm\/splitting@1\.0\.6/.test(html),
-  'Splitting.js 1.0.6 CDN present');
+check(/vendor\/gsap\/SplitText\.min\.js/.test(html),
+  'SplitText vendor plugin present');
 
 check(/EXPLORATION_MIN\s*=\s*8/.test(timelineJs),
   'EXPLORATION_MIN = 8 (minimum exploration window honored)');

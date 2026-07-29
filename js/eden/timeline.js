@@ -1,5 +1,5 @@
 /* ============================================================================
-   EDEN — timeline.js  (Phase 2)
+   EDEN — timeline.js  (Phase 2 — GSAP Club upgraded)
    ----------------------------------------------------------------------------
    The director. Builds the GSAP master timeline that carries the emotional
    arc described in EDEN_FULL_CONTEXT.md §13:
@@ -8,6 +8,12 @@
             → 8–12s EXPLORATION window
                   → REVELATION: EDEN arrives, chromatic spike, settles
                         → scroll hint + scroll unlock
+
+   UPGRADED WITH GSAP CLUB PLUGINS:
+   - ScrollSmoother: buttery smooth scroll interpolation
+   - SplitText: per-letter EDEN reveal animation
+   - CustomEase: bespoke easing curves for Awwwards feel
+   - Observer: unified input handling
 
    CRITICAL DESIGN RULES (from the brief — do not violate):
      - The exploration window MUST NOT be interrupted. No hints, no popups.
@@ -21,7 +27,7 @@
        on window so Phase 3's Three.js scene can react (PointLight rise,
        particle surge, background bloom).
 
-   Uses classic global GSAP/Splitting (CDN, deferred). No ES modules yet.
+   Uses classic global GSAP/SplitText/ScrollSmoother/CustomEase (vendor CDN).
    ========================================================================== */
 
 (function () {
@@ -36,20 +42,35 @@
   const el = (id) => document.getElementById(id);
   const qs = (s)  => document.querySelector(s);
 
-  const hasGSAP = () => !!(window.gsap && window.Splitting);
+  const hasGSAP = () => !!(window.gsap && window.SplitText);
+
+  // ── Custom Easing Curves ────────────────────────────────────────────────
+  // Awwwards-level easing: organic, not linear, not mechanical.
+  const registerCustomEases = () => {
+    if (!window.CustomEase) return;
+    // "Breath" — slow-in, fast-middle, slow-out. Like a lung expanding.
+    CustomEase.create('eden-breath', 'M0,0 C0.126,0.382 0.282,1.034 0.5,1 0.718,0.966 0.874,0.618 1,0');
+    // "Reveal" — quick emergence with a gentle settle. EDEN letter-by-letter.
+    CustomEase.create('eden-reveal', 'M0,0 C0.2,0 0.3,0.8 0.5,1 0.7,1 0.8,0.2 1,0');
+    // "Drift" — continuous, organic motion for parallax.
+    CustomEase.create('eden-drift', 'M0,0 C0.33,0 0.67,1 1,1');
+  };
 
   // ── Custom events for Phase 3 ─────────────────────────────────────────────
   const emit = (name, detail) => {
     window.dispatchEvent(new CustomEvent(name, { detail: detail ?? {} }));
   };
 
-  // ── Splitting.js setup (wrapped in fonts.ready upstream) ─────────────────
-  // EDEN letter-spacing animation works on the whole element; we split for the
-  // optional per-letter reveal polish. "In the beginning." splits by word.
-  const runSplitting = () => {
-    if (!window.Splitting) return;
-    Splitting({ target: '.eden-name', by: 'chars' });
-    Splitting({ target: '.eden-opening', by: 'words' });
+  // ── SplitText setup (GSAP Club — replaces Splitting.js) ───────────────────
+  // SplitText creates per-character <div> elements that GSAP can animate
+  // individually. More control than Splitting.js — each char is a target.
+  let splitChars = null;
+  let splitWords = null;
+
+  const runSplitText = () => {
+    if (!window.SplitText) return;
+    splitChars = new SplitText('.eden-name', { type: 'chars', charsClass: 'char' });
+    splitWords = new SplitText('.eden-opening', { type: 'words', wordsClass: 'word' });
   };
 
   /**
@@ -59,7 +80,8 @@
   const start = () => {
     if (!hasGSAP()) return null;
 
-    runSplitting();
+    registerCustomEases();
+    runSplitText();
 
     const opening   = qs('.eden-opening');
     const name      = qs('.eden-name');
@@ -67,56 +89,56 @@
     const loading   = el('loading-screen');
     const hint      = el('scroll-hint');
 
-    // Ensure clean initial state (style.css also sets these, but be explicit
-    // so nothing flashes if CSS load order shifts).
+    // Ensure clean initial state
     gsap.set(opening, { opacity: 0, y: 8 });
     gsap.set(name, { opacity: 0, letterSpacing: '0.4em' });
     gsap.set(secondary, { opacity: 0 });
     gsap.set(hint, { scaleY: 0, transformOrigin: 'center top' });
+
+    // Set each char to invisible for the letter-by-letter reveal.
+    if (splitChars) {
+      gsap.set(splitChars.chars, { opacity: 0 });
+    }
 
     const t0 = performance.now();
 
     const tl = gsap.timeline();
 
     // 0.0s — the breathing seed exhales and dissolves into the void.
-    // The orb collapses gently (scale 1→0.4) while its word fades, then the
-    // whole screen lifts. Feels like the light being absorbed, not switched off.
     const orb = loading?.querySelector('.loading-orb');
     const orbWord = loading?.querySelector('.loading-word');
     if (orb) {
-      gsap.set(orb, { animation: 'none' });      // freeze the CSS breath
-      tl.to(orb, { scale: 0.4, opacity: 0.0, duration: 0.8, ease: 'power2.in' }, 0);
+      gsap.set(orb, { animation: 'none' });
+      tl.to(orb, { scale: 0.4, opacity: 0.0, duration: 0.8, ease: window.CustomEase ? 'eden-breath' : 'power2.in' }, 0);
     }
     if (orbWord) {
       gsap.set(orbWord, { animation: 'none' });
-      tl.to(orbWord, { opacity: 0, duration: 0.4, ease: 'power1.in' }, 0);
+      tl.to(orbWord, { opacity: 0, duration: 0.4, ease: window.CustomEase ? 'eden-breath' : 'power1.in' }, 0);
     }
     tl.to(loading, {
-      opacity: 0, duration: 0.6, ease: 'power1.out',
+      opacity: 0, duration: 0.6, ease: window.CustomEase ? 'eden-breath' : 'power1.out',
       onComplete: () => loading?.parentNode?.removeChild(loading)
     }, 0.2);
 
     // 0.8s — "In the beginning." in
     tl.fromTo(opening,
       { opacity: 0, y: 8 },
-      { opacity: 0.7, y: 0, duration: 1.2, ease: 'power1.out' },
+      { opacity: 0.7, y: 0, duration: 1.2, ease: window.CustomEase ? 'eden-breath' : 'power1.out' },
       0.8
     );
 
     // 3.2s — "In the beginning." out
     tl.to(opening, {
-      opacity: 0, y: -6, duration: 0.8, ease: 'power1.in'
+      opacity: 0, y: -6, duration: 0.8, ease: window.CustomEase ? 'eden-breath' : 'power1.in'
     }, 3.2);
 
     // 3.8s — EXPLORATION begins. Cursor is the light. Do not interrupt.
-    // (Phase 3 listens for this to raise the PointLight.)
     tl.call(() => {
       emit('eden:exploration-start');
       beginExplorationGate();
     }, [], 3.8);
 
-    // The revelation sequence is appended to `tl` only when the gate fires,
-    // so the timeline's playhead can't run ahead of the visitor's intent.
+    // The revelation sequence is appended to `tl` only when the gate fires.
     let gateFired = false;
     function beginExplorationGate() {
       const openedAt = performance.now();
@@ -127,14 +149,13 @@
 
       const tryReveal = (label) => {
         if (gateFired) return;
-        if (!armed()) return;            // honor the minimum exploration window
+        if (!armed()) return;
         gateFired = true;
         cleanup();
         appendRevelation(label);
       };
 
       const onGesture = (e) => {
-        // Scroll = the strongest "I'm ready / I want more" signal. Click too.
         if (['scroll', 'click', 'wheel', 'keydown'].includes(e.type)) {
           tryReveal(`gesture:${e.type}`);
         }
@@ -148,7 +169,6 @@
         window.removeEventListener('keydown', onGesture);
       };
 
-      // Idle timeout — the kind fallback for visitors who simply wait.
       idleTimer = setTimeout(() => {
         tryReveal(`idle:${EXPLORATION_TIMEOUT}s`);
       }, EXPLORATION_TIMEOUT * 1000);
@@ -163,47 +183,60 @@
       emit('eden:revelation', { reason });
 
       const r = gsap.timeline();
-      // +0.0s — particles surge (Phase 3 reacts to the event; here we just
-      // leave space). Background bloom handled by Phase 3 too.
-      // +1.8s — EDEN arrives. Linear opacity, no y/scale. Letter-spacing is
-      // the only motion on the name. (§13)
-      r.fromTo(name,
-        { opacity: 0 },
-        { opacity: 1, duration: 0.6, ease: 'none' },
-        1.8
-      );
+
+      // +1.8s — EDEN arrives. Letter-by-letter reveal via SplitText.
+      // Each char fades in with a stagger, creating a typographic emergence.
+      // The overall name opacity goes to 1, individual chars also animate.
       r.to(name, {
-        letterSpacing: '0.2em', duration: 1.2, ease: 'power2.out'
+        opacity: 1,
+        duration: 0.01,
+        ease: 'none',
       }, 1.8);
 
-      // +2.0s — chromatic aberration spike (CSS class drives a keyframe on
-      // the canvas/content). Phase 4 will swap this for the ShaderPass.
+      if (splitChars && splitChars.chars.length) {
+        r.to(splitChars.chars, {
+          opacity: 1,
+          duration: 0.4,
+          ease: window.CustomEase ? 'eden-reveal' : 'power2.out',
+          stagger: 0.08,
+        }, 1.8);
+      } else {
+        // Fallback if SplitText failed
+        r.to(name, { opacity: 1, duration: 0.6, ease: 'none' }, 1.8);
+      }
+
+      // Letter-spacing contracts 0.4em → 0.2em (§13 — only motion on the name).
+      r.to(name, {
+        letterSpacing: '0.2em', duration: 1.2, ease: window.CustomEase ? 'eden-breath' : 'power2.out'
+      }, 1.8);
+
+      // +2.0s — chromatic aberration spike
       r.call(() => {
         const target = el('eden-content') ?? document.body;
         target.classList.add('chromatic-active');
         setTimeout(() => target.classList.remove('chromatic-active'), 300);
       }, [], 2.0);
 
-      // +2.6s — optional secondary line ("Saper vedere."), holds 3s, fades.
+      // +2.6s — "Saper vedere." holds 3s, fades
       r.to(secondary, {
-        opacity: 0.5, duration: 0.8, ease: 'power1.out',
+        opacity: 0.5, duration: 0.8, ease: window.CustomEase ? 'eden-breath' : 'power1.out',
         onComplete: () => {
           gsap.to(secondary, {
-            opacity: 0, duration: 1.0, ease: 'power1.in', delay: SECONDARY_HOLD
+            opacity: 0, duration: 1.0, ease: window.CustomEase ? 'eden-breath' : 'power1.in', delay: SECONDARY_HOLD
           });
         }
       }, 2.6);
 
-      // +3.5s — scroll hint in. GSAP grows scaleY; the looping fall animation
-      // is CSS and starts once we add .is-visible (after the grow completes).
+      // +3.5s — scroll hint in
       r.to(hint, {
-        scaleY: 1, duration: 0.8, ease: 'power2.out',
+        scaleY: 1, duration: 0.8, ease: window.CustomEase ? 'eden-breath' : 'power2.out',
         onComplete: () => hint.classList.add('is-visible')
       }, 3.5);
 
-      // +3.8s — unlock scroll, then refresh ScrollTrigger (Gotcha #12)
+      // +3.8s — unlock scroll, init ScrollSmoother + scroll sections
       r.call(() => {
         document.body.style.overflow = ''; // eslint-disable-line no-self-assign
+        initScrollSmoother();
         if (window.ScrollTrigger) {
           window.ScrollTrigger.refresh();
           initScrollSections();
@@ -215,9 +248,38 @@
       tl.add(r, tl.time());
     }
 
-    // ── Scroll section animations ────────────────────────────────────────────
-    // Each .scroll-section fades in + translates up as it enters the viewport.
-    // Parallax depth is driven by data-speed (lower = slower, deeper).
+    // ── ScrollSmoother initialization ──────────────────────────────────────
+    // Creates buttery smooth scroll interpolation. The wrapper div contains
+    // all scrollable content, and ScrollSmoother handles the lerp.
+    function initScrollSmoother() {
+      if (!window.ScrollSmoother) return;
+
+      // Check if already initialized
+      if (window._edenSmoother) return;
+
+      const content = el('smooth-content');
+      if (!content) return;
+
+      // ScrollSmoother needs a wrapper with fixed height.
+      // #smooth-content contains all scroll sections.
+      // We create a smooth wrapper around it.
+      try {
+        window._edenSmoother = ScrollSmoother.create({
+          wrapper: '#smooth-wrapper',
+          content: '#smooth-content',
+          smooth: 1.5,          // smooth scroll duration in seconds
+          effects: true,        // enable data-speed parallax
+          smoothTouch: 0.1,     // light smoothing on touch devices
+          ignoreMobileResize: true,
+        });
+      } catch (e) {
+        console.warn('[EDEN] ScrollSmoother init failed:', e.message);
+      }
+    }
+
+    // ── Scroll section animations ──────────────────────────────────────────
+    // Each .scroll-section fades in + translates up as it enters viewport.
+    // Parallax depth driven by data-speed (lower = slower, deeper).
     function initScrollSections() {
       if (!window.gsap || !window.ScrollTrigger) return;
 
@@ -230,7 +292,7 @@
           opacity: 1,
           y: 0,
           duration: 1.2,
-          ease: 'power2.out',
+          ease: window.CustomEase ? 'eden-breath' : 'power2.out',
           scrollTrigger: {
             trigger: section,
             start: 'top 85%',
@@ -245,7 +307,7 @@
             { '--line-h': '0px', '--line-o': 0 },
             {
               '--line-h': '60px', '--line-o': 0.4,
-              ease: 'power2.out',
+              ease: window.CustomEase ? 'eden-breath' : 'power2.out',
               scrollTrigger: {
                 trigger: section,
                 start: 'top 80%',
@@ -256,14 +318,14 @@
           );
         }
 
-        // Parallax: inner content drifts at a different rate than the section.
+        // Parallax: inner content drifts at different rate.
         const inner = section.querySelector('.scroll-quote, .scroll-philosophy, .scroll-coda, .scroll-credit');
         if (inner) {
           gsap.fromTo(inner,
             { y: 30 * speed },
             {
               y: -20 * speed,
-              ease: 'none',
+              ease: window.CustomEase ? 'eden-drift' : 'none',
               scrollTrigger: {
                 trigger: section,
                 start: 'top bottom',
@@ -276,35 +338,35 @@
       });
     }
 
-    // ── EDEN text breathing pulse ────────────────────────────────────────────
-    // After the reveal, the text glows softly — a slow sine oscillation on
-    // text-shadow opacity, harmonized with the particle field breath.
+    // ── EDEN text breathing pulse ──────────────────────────────────────────
+    // After reveal, the text glows softly — a slow sine oscillation on
+    // text-shadow opacity, harmonized with particle field breath.
     function initEdenBreath() {
       if (!window.gsap || !window.ScrollTrigger) return;
 
-      const name = document.querySelector('.eden-name');
-      const opening = document.querySelector('.eden-opening');
-      const secondary = document.querySelector('.eden-secondary');
-      if (!name) return;
+      const nameEl = document.querySelector('.eden-name');
+      const openingEl = document.querySelector('.eden-opening');
+      const secondaryEl = document.querySelector('.eden-secondary');
+      if (!nameEl) return;
 
       // Subtle opacity pulse: 1.0 → 0.85 → 1.0, 7s cycle
-      gsap.to(name, {
+      gsap.to(nameEl, {
         opacity: 0.85,
         duration: 3.5,
-        ease: 'sine.inOut',
+        ease: window.CustomEase ? 'eden-breath' : 'sine.inOut',
         yoyo: true,
         repeat: -1,
       });
 
       // Fade EDEN text as user scrolls past the reveal.
-      const fadeTargets = [name, opening, secondary].filter(Boolean);
+      const fadeTargets = [nameEl, openingEl, secondaryEl].filter(Boolean);
       gsap.to(fadeTargets, {
         opacity: 0,
         y: -30,
-        ease: 'power2.in',
+        ease: window.CustomEase ? 'eden-breath' : 'power2.in',
         stagger: 0.1,
         scrollTrigger: {
-          trigger: '#scroll-content',
+          trigger: '#smooth-content',
           start: 'top bottom',
           end: 'top 60%',
           scrub: 1.5,

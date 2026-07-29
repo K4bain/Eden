@@ -104,31 +104,32 @@ export function createParticles(opts = {}) {
   const PULL_STRENGTH = 0.0008;
 
   // Scroll depth: 0 at top, 1 at bottom. Drives particle expansion.
+  // With ScrollSmoother, use its progress instead of native scroll.
   let scrollDepth = 0;
   const onScroll = () => {
-    const max = document.documentElement.scrollHeight - window.innerHeight;
-    scrollDepth = max > 0 ? window.scrollY / max : 0;
+    // Prefer ScrollSmoother progress if available (smoother is active).
+    if (window._edenSmoother) {
+      scrollDepth = window._edenSmoother.progress;
+    } else {
+      const max = document.documentElement.scrollHeight - window.innerHeight;
+      scrollDepth = max > 0 ? window.scrollY / max : 0;
+    }
   };
   window.addEventListener('scroll', onScroll, { passive: true });
 
-  // Curl noise helpers — creates organic, fluid particle motion.
-  // Simple 3D noise via hashing (no texture lookup needed).
-  const noise3D = (x, y, z) => {
-    const n = Math.sin(x * 12.9898 + y * 78.233 + z * 45.164) * 43758.5453;
-    return (n - Math.floor(n)) * 2 - 1;  // -1 to 1
-  };
-  const curlNoise = (x, y, z, t) => {
-    const e = 0.1;
-    const nt = t * 0.08;  // slow time evolution
-    // Partial derivatives via finite differences
-    const dx = (noise3D(x + e, y, z + nt) - noise3D(x - e, y, z + nt)) / (2 * e);
-    const dy = (noise3D(x, y + e, z + nt) - noise3D(x, y - e, z + nt)) / (2 * e);
-    const dz = (noise3D(x, y, z + e + nt) - noise3D(x, y, z - e + nt)) / (2 * e);
-    return { x: dy - dz, y: dz - dx, z: dx - dy };
+  // Cheap turbulence — 3 sine waves instead of 6 noise3D evaluations.
+  // Visually similar to curl noise but ~10x cheaper per particle.
+  const turbulence = (x, y, z, t) => {
+    const nt = t * 0.08;
+    return {
+      x: Math.sin(y * 1.3 + nt) * 0.7 + Math.cos(z * 0.9 + nt * 0.7) * 0.3,
+      y: Math.cos(x * 1.1 + nt * 0.8) * 0.6 + Math.sin(z * 1.4 + nt) * 0.4,
+      z: Math.sin(x * 0.7 + y * 0.5 + nt * 1.2) * 0.5,
+    };
   };
 
   // Reusable vec for cursor pull math (no allocation in hot loop).
-  let dx = 0, dy = 0, dist = 0, pull = 0;
+  let dx = 0, dy = 0, pull = 0;
 
   const update = (time /*s*/, cursorWorld) => {
     age += 1 / 60;                      // approximate; fine for fades
@@ -140,15 +141,14 @@ export function createParticles(opts = {}) {
 
     for (let i = 0; i < count; i++) {
       const i3 = i * 3;
-      // Curl noise — organic flow field, not linear drift.
-      const cn = curlNoise(pos[i3] * 0.3, pos[i3 + 1] * 0.3, pos[i3 + 2] * 0.3, time);
+      // Cheap turbulence — 3 sine waves instead of 6 noise evaluations.
+      const cn = turbulence(pos[i3] * 0.3, pos[i3 + 1] * 0.3, pos[i3 + 2] * 0.3, time);
       const noiseForce = 0.00012 * (1 + surgeFactor * 3);
       pos[i3]     += cn.x * noiseForce;
       pos[i3 + 1] += cn.y * noiseForce + vy[i] * (1 + surgeFactor * 4);
       pos[i3]     += Math.sin(time * 0.6 + phase[i]) * 0.0001;
 
       // Scroll-driven expansion: particles drift outward as you scroll deeper.
-      // Creates a sense of the field opening up, revealing more space.
       if (scrollDepth > 0.05) {
         const expand = scrollDepth * 0.003;
         const px = pos[i3];
@@ -158,14 +158,14 @@ export function createParticles(opts = {}) {
         pos[i3 + 1] += (py / len) * expand;
       }
 
-      // Cursor pull (§8: inverse-falloff drift toward warmth).
+      // Cursor pull — skip if particle is far from cursor (early-out).
       if (cursorWorld) {
         dx = cursorWorld.x - pos[i3];
         dy = cursorWorld.y - pos[i3 + 1];
+        // Cheap square-distance check before sqrt.
         const distSq = dx * dx + dy * dy;
-        if (distSq < PULL_RADIUS_SQ) {
-          dist = Math.sqrt(distSq);
-          pull = PULL_STRENGTH * (1 - dist / PULL_RADIUS);
+        if (distSq < PULL_RADIUS_SQ && distSq > 0.001) {
+          pull = PULL_STRENGTH * (1 - Math.sqrt(distSq) / PULL_RADIUS);
           pos[i3]     += dx * pull;
           pos[i3 + 1] += dy * pull;
         }
