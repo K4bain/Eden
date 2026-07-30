@@ -359,45 +359,62 @@
       });
     }
 
-    // ── EDEN stays pinned until scroll ────────────────────────────────────
-    // The text is fixed until the user scrolls, then fades away smoothly.
+    // ── EDEN pinned hero ───────────────────────────────────────────────────
+    // EDEN is the anchor. The sub-text drifts away early to clear the stage;
+    // the name holds full and centered through the middle of the hero, then
+    // dissolves with a gentle lift + scale as the first quote rises to
+    // replace it. A warm text-shadow glow breathes the whole time (on a
+    // property that never conflicts with the scroll-driven opacity/scale).
     function initEdenBreath() {
       if (!window.gsap || !window.ScrollTrigger) return;
 
       const nameEl = document.querySelector('.eden-name');
+      const nameWrap = document.querySelector('.eden-name-wrap');
       const openingEl = document.querySelector('.eden-opening');
       const secondaryEl = document.querySelector('.eden-secondary');
       if (!nameEl) return;
 
-      // No breathing pulse — EDEN stays at full opacity until scroll.
-      // Pin the text so it stays visible as the scroll begins.
-      ScrollTrigger.create({
-        trigger: '#smooth-content',
-        start: 'top bottom',
-        end: 'top 30%',
-        onEnter: () => { /* stays visible */ },
-        onLeaveBack: () => { /* stays visible */ },
-      });
+      const ease = window.CustomEase ? 'eden-breath' : 'power2.inOut';
 
-      // Fade EDEN text as user scrolls — but only after scrolling past the initial viewport.
-      const fadeTargets = [nameEl, openingEl, secondaryEl].filter(Boolean);
-      gsap.to(fadeTargets, {
+      // Sub-text clears the stage first — drifts up + fades over the first
+      // ~25% of the hero scroll. Leaves EDEN alone and centered.
+      const subText = [openingEl, secondaryEl].filter(Boolean);
+      if (subText.length) {
+        gsap.to(subText, {
+          opacity: 0,
+          y: -30,
+          ease,
+          scrollTrigger: {
+            trigger: '#smooth-content',
+            start: 'top 90%',
+            end: 'top 60%',
+            scrub: 1.2,
+          },
+        });
+      }
+
+      // EDEN holds steady until ~halfway, then dissolves upward with a tiny
+      // scale-down — like the title page turning. Targets the wrapper so
+      // parallax on inner h1 is unaffected.
+      const scrollTarget = nameWrap || nameEl;
+      gsap.to(scrollTarget, {
         opacity: 0,
-        y: -40,
-        scale: 0.95,
-        ease: 'power2.inOut',
-        stagger: 0.15,
+        y: -60,
+        scale: 0.92,
+        ease,
         scrollTrigger: {
           trigger: '#smooth-content',
-          start: 'top 30%',
-          end: 'top 80%',
+          start: 'top 50%',
+          end: 'top 10%',
           scrub: 1.5,
         },
       });
 
-      // Text glow pulse — subtle warm oscillation on text-shadow instead of opacity.
+      // Warm glow breathing — oscillates text-shadow only (never opacity),
+      // so EDEN feels alive while pinned without fighting the scroll fade.
       gsap.to(nameEl, {
-        textShadow: '0 0 40px rgba(139,94,60,0.25), 0 0 80px rgba(139,94,60,0.12), 0 2px 4px rgba(0,0,0,0.08)',
+        textShadow:
+          '0 0 40px rgba(139,94,60,0.25), 0 0 80px rgba(139,94,60,0.12), 0 2px 4px rgba(0,0,0,0.08)',
         duration: 3,
         ease: 'sine.inOut',
         yoyo: true,

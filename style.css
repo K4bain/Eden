@@ -152,6 +152,11 @@ html { cursor: none; }
   perspective: 800px;
 }
 
+/* Wrapper for scroll-driven fade — parallax targets inner h1, scroll targets wrapper */
+.eden-name-wrap {
+  display: inline-block;
+}
+
 .eden-opening {
   /* "In the beginning." — Cormorant Garamond 300. A whisper, not a headline. */
   font-family: 'Cormorant Garamond', serif;
