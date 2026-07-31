@@ -77,6 +77,7 @@ html { cursor: none; }
   height: 100vh;
   pointer-events: none;   /* CRITICAL (Section 12) — never change without cause */
   display: block;
+  contain: strict;        /* Perf: isolate paint/layout for full-screen canvases */
 }
 
 /* ── 3. Layer stack (z-index, Section 12) ────────────────────────────────── */
@@ -131,7 +132,9 @@ html { cursor: none; }
   background-size: 256px 256px;
   background-repeat: repeat;
   opacity: 0.03;
-  mix-blend-mode: multiply;
+  /* Perf: mix-blend-mode: multiply was removed — it forced the browser to
+     re-composite a full-viewport backing store every frame. At opacity 0.03
+     the blend mode is imperceptible anyway. */
 }
 
 /* ── 5. Content (Section 12 / 13) ────────────────────────────────────────── */

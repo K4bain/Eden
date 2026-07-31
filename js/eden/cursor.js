@@ -119,21 +119,20 @@ export function createCursor(opts) {
                   CLEAR_BOX * 2, CLEAR_BOX * 2);
 
     // Draw trail afterglow — fading copies behind the cursor.
+    // Uses setTransform for positioning instead of save/restore (cheaper —
+    // avoids pushing/popping the entire state stack per trail node).
     for (let i = TRAIL_LEN - 1; i >= 1; i--) {
       const t = trail[i];
-      const alpha = (1 - i / TRAIL_LEN) * 0.12;
+      ctx.globalAlpha = (1 - i / TRAIL_LEN) * 0.12;
       const radius = 6 + (i / TRAIL_LEN) * 10;
-      ctx.save();
-      ctx.globalAlpha = alpha;
-      ctx.translate(t.x, t.y);
+      ctx.setTransform(1, 0, 0, 1, t.x, t.y);
       ctx.fillStyle = outerGrad;
       ctx.fillRect(-radius * 2, -radius * 2, radius * 4, radius * 4);
-      ctx.restore();
     }
 
-    // Reposition cached gradients via translate — no new objects created.
-    ctx.save();
-    ctx.translate(mouse.x, mouse.y);
+    // Reposition cached gradients via setTransform — no save/restore overhead.
+    ctx.globalAlpha = 1;
+    ctx.setTransform(1, 0, 0, 1, mouse.x, mouse.y);
 
     // Outer glow — large, very soft.
     ctx.fillStyle = outerGrad;
@@ -151,7 +150,8 @@ export function createCursor(opts) {
     ctx.arc(0, 0, 14, 0, Math.PI * 2);
     ctx.fill();
 
-    ctx.restore();
+    // Reset transform for clearRect calls next frame.
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
 
     lastDrawX = mouse.x;
     lastDrawY = mouse.y;
