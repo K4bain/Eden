@@ -116,7 +116,7 @@ export function initScene() {
   // ── Particles (floating confetti over the relief) ─────────────────────────
   // Perf: 1200 → 700 desktop. The field reads as full at this density and it
   // cuts the per-frame CPU loop + buffer upload by ~42%.
-  const particles = createParticles({ count: isMobile ? 200 : 700, isMobile });
+  const particles = createParticles({ count: isMobile ? 150 : 400, isMobile });
   scene.add(particles.points);
 
   // ── Cursor light (skipped on touch) ──────────────────────────────────────

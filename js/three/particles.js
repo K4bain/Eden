@@ -148,23 +148,24 @@ export function createParticles(opts = {}) {
       pos[i3]     += Math.sin(time * 0.6 + phase[i]) * 0.0001;
 
       // Scroll-driven expansion: particles drift outward as you scroll deeper.
+      // Cheap approximation — no sqrt, just multiply by sign(px/py) * expand.
+      // Slightly inaccurate direction but visually identical for small expansion.
       if (scrollDepth > 0.05) {
         const expand = scrollDepth * 0.003;
-        const px = pos[i3];
-        const py = pos[i3 + 1];
-        const len = Math.sqrt(px * px + py * py) || 1;
-        pos[i3]     += (px / len) * expand;
-        pos[i3 + 1] += (py / len) * expand;
+        pos[i3]     += (pos[i3] > 0 ? 1 : -1) * expand;
+        pos[i3 + 1] += (pos[i3 + 1] > 0 ? 1 : -1) * expand;
       }
 
       // Cursor pull — skip if particle is far from cursor (early-out).
+      // Uses inverse-square falloff instead of sqrt — visually similar, cheaper.
       if (cursorWorld) {
         dx = cursorWorld.x - pos[i3];
         dy = cursorWorld.y - pos[i3 + 1];
-        // Cheap square-distance check before sqrt.
         const distSq = dx * dx + dy * dy;
         if (distSq < PULL_RADIUS_SQ && distSq > 0.001) {
-          pull = PULL_STRENGTH * (1 - Math.sqrt(distSq) / PULL_RADIUS);
+          const invDist = 1 / distSq;
+          pull = PULL_STRENGTH * invDist * 2;
+          if (pull > PULL_STRENGTH) pull = PULL_STRENGTH; // clamp
           pos[i3]     += dx * pull;
           pos[i3 + 1] += dy * pull;
         }

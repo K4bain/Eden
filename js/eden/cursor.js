@@ -27,7 +27,7 @@ export function createCursor(opts) {
   // Trail afterglow — a short ring buffer of recent positions. Kept short
   // (was 12) because each trail node is a gradient fill per frame; 6 is
   // visually identical and halves the draw cost.
-  const TRAIL_LEN = 6;
+  const TRAIL_LEN = 3;
   const trail = [];
   for (let i = 0; i < TRAIL_LEN; i++) trail.push({ x: mouse.x, y: mouse.y });
 
@@ -58,7 +58,7 @@ export function createCursor(opts) {
   // drawable element is the outer glow (90px radius) + trail, so clear a
   // generous box. Saves ~990×720px of clearRect work every frame.
   const GLOW_R = 90;
-  const TRAIL_SPREAD = 80;          // max distance a trail node can be behind
+  const TRAIL_SPREAD = 40;          // max distance a trail node can be behind
   const CLEAR_BOX = GLOW_R + TRAIL_SPREAD + 10;
   let lastDrawX = null, lastDrawY = null;
 
